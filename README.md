@@ -14,8 +14,8 @@ ASLSCAN is the **Dashboard of [HAMNA Web](https://github.com/xe2mbe/hamna)** as 
 
 ### What it does
 
-- **Dashboard**: the nodes linked right now, with callsign and city (AllStar directory), mode, direction, time connected, IP and who is talking, plus the nodes reachable across the network. **Connect** (transceive, monitor or local monitor) and **disconnect** one or all.
-- **Favorites in categories** shown as tabs, with an editor (rename, reorder, drag between categories). The first time they're imported from AllScan.
+- **Dashboard**: the nodes linked right now, with callsign and city (AllStar directory), mode, direction, time connected, IP and who is talking, plus the nodes reachable across the network; each direct link shows the favorites group it belongs to. **Connect** (transceive, monitor or local monitor) and **disconnect** one or all.
+- **Favorites in categories** below the direct links, shown as tabs, each category with its own color and box (how many nodes it has and how many are connected), with an editor (rename, reorder, drag between categories). The first time they're imported from AllScan.
 - **Node search** in the AllStar directory by callsign, node number, description or location, with **● Online / ● No reply / ○ Offline** labels (AllStar DNS + IAX POKE).
 - **IRLP**: the node or reflector it's connected to, COS/PTT, the other nodes on the reflector, connect/disconnect, enable/disable, inactivity timeout, AUX outputs, DTMF, the IRLP log and the switch to turn the old IRLPvCON off.
 - **🔊 Live listening** from the page (8 kHz, up to 8 listeners).
@@ -30,6 +30,7 @@ ASLSCAN is the **Dashboard of [HAMNA Web](https://github.com/xe2mbe/hamna)** as 
 | Section | What's there |
 |---|---|
 | **Node** | Node number, station name and logo; test the connection with Asterisk / IRLP |
+| **Tones** (ASL3) | The courtesy tones in rpt.conf: listen in the browser, edit beeps and pauses, which tone plays when the node is linked or not, the pause before the tone (unkeywait) and the hang time. A copy is kept before each change; **Apply** restarts Asterisk and goes back to the previous file if the node doesn't come back |
 | **Users** | Same as HAMNA: create, edit, roles, sessions, lockouts |
 | **Telegram** | The bot (token, chat), who has it linked, and the alerts |
 | **Backup** | Automatic, download and restore, receive from other nodes |
@@ -124,8 +125,8 @@ ASLSCAN es el **Dashboard de [HAMNA Web](https://github.com/xe2mbe/hamna)** como
 
 ### Qué hace
 
-- **Dashboard**: los nodos enlazados en este momento, con indicativo y ciudad (directorio de AllStar), modo, dirección, tiempo conectado, IP y quién está hablando, y los nodos alcanzables en toda la red. **Conectar** (transceptor, monitor o monitor local) y **desconectar** uno o todos.
-- **Favoritos por categorías** en pestañas, con editor (renombrar, ordenar, arrastrar entre categorías). La primera vez se importan de AllScan.
+- **Dashboard**: los nodos enlazados en este momento, con indicativo y ciudad (directorio de AllStar), modo, dirección, tiempo conectado, IP y quién está hablando, y los nodos alcanzables en toda la red; cada enlace directo muestra el grupo de favoritos al que pertenece. **Conectar** (transceptor, monitor o monitor local) y **desconectar** uno o todos.
+- **Favoritos por categorías** debajo de los enlaces directos, en pestañas, cada categoría con su color y su recuadro (cuántos nodos tiene y cuántos están conectados), con editor (renombrar, ordenar, arrastrar entre categorías). La primera vez se importan de AllScan.
 - **Buscador de nodos** en el directorio de AllStar por indicativo, número, descripción o lugar, con etiquetas **● En línea / ● Sin resp. / ○ Apagado** (DNS de AllStar + POKE de IAX).
 - **IRLP**: a qué nodo o reflector está conectado, COS/PTT, los demás nodos del reflector, conectar/desconectar, habilitar/deshabilitar, desconexión por inactividad, salidas AUX, DTMF, la bitácora de IRLP y el botón para apagar el viejo IRLPvCON.
 - **🔊 Escuchar en vivo** desde la página (8 kHz, hasta 8 personas).
@@ -140,6 +141,7 @@ ASLSCAN es el **Dashboard de [HAMNA Web](https://github.com/xe2mbe/hamna)** como
 | Sección | Qué tiene |
 |---|---|
 | **Nodo** | Número de nodo, nombre de la estación y logo; probar la conexión con Asterisk / IRLP |
+| **Tonos** (ASL3) | Los tonos de cortesía de rpt.conf: escucharlos en el navegador, editar pitidos y pausas, qué tono suena con el nodo enlazado o sin enlaces, la pausa antes del tono (unkeywait) y la cola (hangtime). Se guarda una copia antes de cada cambio; **Aplicar** reinicia Asterisk y regresa al archivo anterior si el nodo no vuelve |
 | **Usuarios** | Igual que en HAMNA: crear, editar, roles, sesiones, bloqueos |
 | **Telegram** | El bot (token, chat), quién lo tiene vinculado y los avisos |
 | **Respaldo** | Automático, descargar y restaurar, recibir de otros nodos |
