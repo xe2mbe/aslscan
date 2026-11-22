@@ -94,6 +94,17 @@ if [ "$TYPE" = asl ]; then
     NODE=$(grep -m1 -E '^\[[0-9]{3,7}\]' /etc/asterisk/rpt.conf | sed 's/^\[\([0-9]*\)\].*/\1/' || true)
   fi
   c_ok "$FLAVOR, node ${NODE:-?} (service runs as $RUN_USER)"
+  # Node search needs the AllStar directory (astdb.txt). A fresh ASL3 ships
+  # its daily download timer disabled: turn it on and download it once.
+  if systemctl list-unit-files asl3-update-astdb.timer >/dev/null 2>&1 \
+     && ! systemctl is-enabled --quiet asl3-update-astdb.timer 2>/dev/null; then
+    systemctl enable --now asl3-update-astdb.timer >/dev/null 2>&1 || true
+    if [ ! -s /var/lib/asterisk/astdb.txt ]; then
+      timeout 120 /usr/bin/asl3-update-astdb >/dev/null 2>&1 || true
+    fi
+    if [ -s /var/lib/asterisk/astdb.txt ]; then c_ok "AllStar directory downloaded (daily update turned on)"
+    else c_warn "Could not download the AllStar directory yet; it retries daily (asl3-update-astdb.timer)"; fi
+  fi
 else
   FLAVOR=IRLP
   RUN_USER=repeater
