@@ -4,8 +4,11 @@ ASLSCAN — tonos de cortesía en rpt.conf (AllStarLink / HamVOIP).
 Lee y cambia solo esto:
   · los tonos ctN de la sección de telemetría del nodo (la que dice su
     `telemetry =`; en ASL3 [telemetry], en HamVOIP [telemetry58788]);
-  · cuál tono usa el nodo: unlinkedct (sin enlaces), remotect (con enlaces)
-    y linkunkeyct (al soltar un nodo enlazado).
+  · remotetx y remotemon, en esa misma sección: el tono que suena al soltar el
+    PTT cuando el nodo ESTÁ ENLAZADO (en transceptor / solo en monitor). Con
+    enlaces app_rpt usa estos y no unlinkedct;
+  · cuál ctN usa el nodo: unlinkedct (sin enlaces), linkunkeyct (al soltar
+    alguien que llega por un enlace) y remotect (base remota enlazada).
 
 Cada cambio guarda antes una copia de rpt.conf (rpt.conf.aslscan-FECHA, se
 conservan las últimas 10) y cambia solo esos renglones, respetando los
@@ -29,7 +32,8 @@ log = logging.getLogger("aslscan.rptconf")
 
 RPT_CONF = "/etc/asterisk/rpt.conf"
 GUARDAR = 10
-USOS = ("unlinkedct", "remotect", "linkunkeyct")
+USOS = ("unlinkedct", "linkunkeyct", "remotect")
+ENLACE = ("remotetx", "remotemon")      # tonos directos (no ctN) de la sección de telemetría
 CT_RX = re.compile(r"^ct(\d{1,2})$")
 SEG_RX = re.compile(r"\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)")
 MAX_SEG = 12
@@ -152,9 +156,11 @@ def estado(cfg):
         pend.extend(secs[s]["plantillas"])
     for s in reversed(cadena):
         for k, v in secs[s]["claves"].items():
-            if CT_RX.match(k):
-                tonos[k] = {"nombre": k, "valor": v, "segmentos": segmentos(v), "propio": s == tel}
-    lista = sorted(tonos.values(), key=lambda t: int(CT_RX.match(t["nombre"]).group(1)))
+            if CT_RX.match(k) or k in ENLACE:
+                tonos[k] = {"nombre": k, "valor": v, "segmentos": segmentos(v), "propio": s == tel,
+                            "enlace": k in ENLACE}
+    lista = sorted(tonos.values(), key=lambda t: (0, ENLACE.index(t["nombre"])) if t["enlace"]
+                   else (1, int(CT_RX.match(t["nombre"]).group(1))))
     uso = {}
     for k in USOS:
         v, donde = _valor(secs, nodo, k)
@@ -223,11 +229,13 @@ def guardar(cfg, tonos, uso, borrar=None):
     nuevos = {}
     for nombre, segs in (tonos or {}).items():
         nombre = str(nombre).lower()
-        if not CT_RX.match(nombre) or not 1 <= int(nombre[2:]) <= 99:
+        if nombre not in ENLACE and (not CT_RX.match(nombre) or not 1 <= int(nombre[2:]) <= 99):
             raise ValueError("Nombre de tono inválido: {} (usa ct1 a ct99)".format(nombre))
         nuevos[nombre] = tono_texto(validar_segmentos(segs))
     quitar = [str(b).lower() for b in (borrar or [])]
-    disponibles = (existentes | set(nuevos)) - set(quitar)
+    if any(q in ENLACE for q in quitar):
+        raise ValueError("Los tonos de cuando el nodo está enlazado no se pueden borrar")
+    disponibles = ((existentes | set(nuevos)) - set(quitar)) - set(ENLACE)
     cambios_uso = {}
     for k, v in (uso or {}).items():
         if k not in USOS:

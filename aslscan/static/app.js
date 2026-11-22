@@ -1857,9 +1857,19 @@ $("#btnCloseOthers").onclick = async () => {
 
 
 /* ── Tonos de cortesía (rpt.conf) ────────────────────────────────────────── */
-const USOS_CT = [["unlinkedct", "Sin enlaces", "Cuando el nodo no está conectado a otros"],
-  ["remotect", "Con enlaces", "Cuando el nodo está conectado a otros nodos"],
-  ["linkunkeyct", "Al soltar un nodo enlazado", "Cuando termina de hablar alguien que llega por un enlace"]];
+const USOS_CT = [["unlinkedct", "Sin enlaces", "Al soltar el PTT en el radio cuando el nodo no está conectado a ningún otro"],
+  ["linkunkeyct", "Al soltar alguien que llega por un enlace", "Cuando termina de hablar alguien desde otro nodo"],
+  ["remotect", "Con una base remota enlazada", "Casi nunca se usa"]];
+const CT_EN = { "Sin enlaces": "Not linked", "Al soltar alguien que llega por un enlace": "When someone on a link unkeys",
+  "Con una base remota enlazada": "With a remote base linked", "Enlazado en transceptor": "Linked in transceive",
+  "Enlazado solo en monitor": "Linked in monitor only",
+  "Al soltar el PTT en el radio cuando el nodo no está conectado a ningún otro": "When the radio unkeys and the node isn't connected to any other",
+  "Cuando termina de hablar alguien desde otro nodo": "When someone on another node stops talking", "Casi nunca se usa": "Rarely used",
+  "Al soltar el PTT en el radio mientras hay enlaces en transceptor (casi siempre: es el que más se oye)": "When the radio unkeys while there are transceive links (almost always: it's the one heard most)",
+  "Al soltar el PTT en el radio cuando todos los enlaces son solo de monitor": "When the radio unkeys and every link is monitor only" };
+const ENLACE_CT = { remotetx: ["Enlazado en transceptor", "Al soltar el PTT en el radio mientras hay enlaces en transceptor (casi siempre: es el que más se oye)"],
+  remotemon: ["Enlazado solo en monitor", "Al soltar el PTT en el radio cuando todos los enlaces son solo de monitor"] };
+const ctLG = (t) => LG(t, CT_EN[t] || t);
 const ctNum = (n) => +String(n).replace(/\D/g, "") || 0;
 const ctResumen = (segs) => segs ? segs.filter((x) => x[0] || x[1]).map((x) => x[1] ? `${x[0]}+${x[1]} Hz` : `${x[0]} Hz`).join(" · ") +
   ` · ${segs.reduce((a, x) => a + x[2], 0)} ms` : LG("archivo de sonido", "sound file");
@@ -1899,7 +1909,8 @@ async function loadTonos() {
 function renderTonos() {
   const box = $("#tonosBox"), st = S.tonosSt, ed = S.tonosEd;
   if (!st.disponible) { box.innerHTML = `<p class="muted">${esc(st.motivo || "")}</p>`; return; }
-  const nombres = Object.keys(ed.tonos).filter((n) => !ed.borrar.includes(n)).sort((a, b) => ctNum(a) - ctNum(b));
+  const nombres = Object.keys(ed.tonos).filter((n) => !ed.borrar.includes(n) && !ENLACE_CT[n]).sort((a, b) => ctNum(a) - ctNum(b));
+  const enlaceN = Object.keys(ENLACE_CT).filter((n) => ed.tonos[n] !== undefined);
   const ap = st.aplicando || {};
   const sucio = S.tonosSucio.size || USOS_CT.some(([k]) => ed.uso[k] !== (((st.uso || {})[k] || {}).valor || "")) || ed.borrar.length;
   let aviso = "";
@@ -1910,29 +1921,36 @@ function renderTonos() {
   else if (ap.estado === "ok" || ap.estado === "error") aviso = `<div class="upd-box${ap.estado === "error" ? " new" : ""}"><b>${ap.estado === "ok" ? "✅" : "❌"} ${esc(ap.mensaje)}</b></div>`;
   const opts = (sel) => `<option value="">${LG("— ninguno —", "— none —")}</option>` + nombres.map((n) =>
     `<option value="${esc(n)}" ${n === sel ? "selected" : ""}>${esc(n)} · ${esc(ctResumen(ed.tonos[n]))}</option>`).join("");
-  const usado = (n) => USOS_CT.filter(([k]) => ed.uso[k] === n).map(([, l]) => LG(l, { "Sin enlaces": "Unlinked", "Con enlaces": "Linked", "Al soltar un nodo enlazado": "Link unkey" }[l]));
+  const usado = (n) => USOS_CT.filter(([k]) => ed.uso[k] === n).map(([, l]) => ctLG(l));
   const propio = (n) => { const t = (st.tonos || []).find((x) => x.nombre === n); return !t || t.propio; };
-  box.innerHTML = aviso + `
-    <div class="bk-card"><h4>${LG("Cuándo suena cada tono", "When each tone plays")}</h4>
-      ${USOS_CT.map(([k, l, h]) => `<div class="ct-uso"><div><b>${LG(l, { "Sin enlaces": "Not linked", "Con enlaces": "Linked", "Al soltar un nodo enlazado": "When a linked node unkeys" }[l])}</b><small class="muted">${LG(h, { "Cuando el nodo no está conectado a otros": "When the node isn't connected to others", "Cuando el nodo está conectado a otros nodos": "When the node is connected to other nodes", "Cuando termina de hablar alguien que llega por un enlace": "When someone coming through a link stops talking" }[h])}</small></div>
-        <select data-ctuso="${k}" translate="no">${opts(ed.uso[k])}</select>
-        <button type="button" class="btn sm" data-ctplay="${esc(ed.uso[k])}" ${ed.uso[k] && ed.tonos[ed.uso[k]] ? "" : "disabled"} title="${LG("Escuchar", "Listen")}">▶</button></div>`).join("")}
-    </div>
-    <div class="ct-lista">${nombres.map((n) => {
-      const segs = ed.tonos[n], u = usado(n);
-      return `<div class="ct-card${S.tonosSucio.has(n) ? " sucio" : ""}" data-ct="${esc(n)}" translate="no">
-        <div class="ct-head"><b>${esc(n)}</b>${u.length ? `<span class="chip ok">${esc(u.join(" · "))}</span>` : ""}${propio(n) ? "" : `<span class="chip" title="${LG("Viene de la plantilla de ASL; al cambiarlo se guarda en tu sección", "Comes from the ASL template; changing it saves it in your section")}">${LG("plantilla", "template")}</span>`}
+  const tarjeta = (n) => {
+    const segs = ed.tonos[n], u = usado(n), en = ENLACE_CT[n];
+    return `<div class="ct-card${S.tonosSucio.has(n) ? " sucio" : ""}${en ? " ct-enl" : ""}" data-ct="${esc(n)}" translate="no">
+        <div class="ct-head">${en ? `<div><b>${esc(ctLG(en[0]))}</b> <code>${esc(n)}</code><small class="muted ct-desc">${esc(ctLG(en[1]))}</small></div>` : `<b>${esc(n)}</b>`}${u.length ? `<span class="chip ok">${esc(u.join(" · "))}</span>` : ""}${propio(n) || en ? "" : `<span class="chip" title="${LG("Viene de la plantilla de ASL; al cambiarlo se guarda en tu sección", "Comes from the ASL template; changing it saves it in your section")}">${LG("plantilla", "template")}</span>`}
           <span class="ct-acc"><button type="button" class="btn sm" data-ctplay="${esc(n)}" ${segs ? "" : "disabled"}>▶ ${LG("Escuchar", "Listen")}</button>
-          ${propio(n) && !u.length && (st.tonos || []).some((x) => x.nombre === n) ? `<button type="button" class="btn sm ghost" data-ctdel="${esc(n)}" title="${LG("Borrar", "Delete")}">🗑</button>` : ""}
+          ${!en && propio(n) && !u.length && (st.tonos || []).some((x) => x.nombre === n) ? `<button type="button" class="btn sm ghost" data-ctdel="${esc(n)}" title="${LG("Borrar", "Delete")}">🗑</button>` : ""}
           ${!(st.tonos || []).some((x) => x.nombre === n) ? `<button type="button" class="btn sm ghost" data-ctdel="${esc(n)}" title="${LG("Quitar", "Remove")}">✕</button>` : ""}</span></div>
+        ${en ? `<div class="ct-copia"><span class="muted">${LG("Copiar de", "Copy from")}</span><select data-ctcopia="${esc(n)}"><option value="">—</option>${nombres.filter((x) => ed.tonos[x]).map((x) => `<option value="${esc(x)}">${esc(x)} · ${esc(ctResumen(ed.tonos[x]))}</option>`).join("")}</select></div>` : ""}
         ${segs ? `<div class="ct-segs"><div class="ct-seg ct-segh"><span>${LG("Tono 1 (Hz)", "Tone 1 (Hz)")}</span><span>${LG("Tono 2 (Hz)", "Tone 2 (Hz)")}</span><span>ms</span><span>${LG("Volumen", "Volume")}</span><span></span></div>
           ${segs.map((x, i) => `<div class="ct-seg">${x.map((v, j) => `<input type="number" inputmode="numeric" data-ctv="${i}:${j}" value="${v}" min="0" max="${[4000, 4000, 5000, 16384][j]}" step="${j === 3 ? 256 : j === 2 ? 10 : 1}">`).join("")}
             <button type="button" class="btn sm ghost" data-ctsegdel="${i}" ${segs.length < 2 ? "disabled" : ""} title="${LG("Quitar pitido", "Remove beep")}">✕</button></div>`).join("")}
           <div class="row gap wrap"><button type="button" class="btn sm" data-ctsegadd="tono">＋ ${LG("Pitido", "Beep")}</button><button type="button" class="btn sm" data-ctsegadd="pausa">＋ ${LG("Pausa", "Pause")}</button>
+            ${segs[0] && !segs[0][0] && !segs[0][1] ? "" : `<button type="button" class="btn sm" data-ctsegadd="inicio" title="${LG("Si el tono no se oye porque el transmisor o los radios tardan en abrir", "If the tone isn't heard because the transmitter or the radios take a moment to open")}">＋ ${LG("Silencio al inicio", "Leading silence")}</button>`}
             <span class="muted ct-res">${esc(ctResumen(segs))}</span></div></div>`
           : `<p class="muted">${LG("Es un archivo de sonido", "It's a sound file")}: <code>${esc(((st.tonos || []).find((x) => x.nombre === n) || {}).valor)}</code></p>`}
       </div>`;
-    }).join("")}</div>
+  };
+  box.innerHTML = aviso + `
+    ${enlaceN.length ? `<h4 class="bk-sub">${LG("Cuando el nodo está enlazado", "When the node is linked")}</h4>
+      <p class="muted ct-ayuda">${LG("Mientras el nodo tenga algún enlace (por ejemplo, el enlace permanente con el hub), al soltar el PTT suena uno de estos dos y no el de «Sin enlaces».", "While the node has any link (for example the permanent link to the hub), one of these two plays when the PTT is released, not the «Not linked» one.")}</p>
+      <div class="ct-lista">${enlaceN.map(tarjeta).join("")}</div>` : ""}
+    <div class="bk-card"><h4>${LG("Qué tono se usa en los demás casos", "Which tone is used in the other cases")}</h4>
+      ${USOS_CT.map(([k, l, h]) => `<div class="ct-uso"><div><b>${esc(ctLG(l))}</b><small class="muted">${esc(ctLG(h))}</small></div>
+        <select data-ctuso="${k}" translate="no">${opts(ed.uso[k])}</select>
+        <button type="button" class="btn sm" data-ctplay="${esc(ed.uso[k])}" ${ed.uso[k] && ed.tonos[ed.uso[k]] ? "" : "disabled"} title="${LG("Escuchar", "Listen")}">▶</button></div>`).join("")}
+    </div>
+    <h4 class="bk-sub">${LG("Tonos disponibles", "Available tones")}</h4>
+    <div class="ct-lista">${nombres.map(tarjeta).join("")}</div>
     <p class="muted ct-ayuda">${LG("Frecuencia 0 = silencio. Con dos frecuencias suenan juntas (como DTMF). Volumen normal: 2048.", "Frequency 0 = silence. With two frequencies they sound together (like DTMF). Normal volume: 2048.")}</p>
     <div class="row gap wrap"><button type="button" class="btn" id="btnCtNuevo">＋ ${LG("Nuevo tono", "New tone")}</button>
       <button type="button" class="btn primary" id="btnCtGuardar" ${sucio ? "" : "disabled"}>${LG("Guardar en rpt.conf", "Save to rpt.conf")}</button>
@@ -1948,7 +1966,9 @@ document.addEventListener("click", async (e) => {
   if (b.dataset.ctsegdel !== undefined) { ed.tonos[n].splice(+b.dataset.ctsegdel, 1); S.tonosSucio.add(n); return renderTonos(); }
   if (b.dataset.ctsegadd) {
     if (ed.tonos[n].length >= 12) return toast(LG("Máximo 12 pitidos por tono", "At most 12 beeps per tone"), true);
-    ed.tonos[n].push(b.dataset.ctsegadd === "pausa" ? [0, 0, 50, 0] : [1000, 0, 100, 2048]); S.tonosSucio.add(n); return renderTonos();
+    if (b.dataset.ctsegadd === "inicio") ed.tonos[n].unshift([0, 0, 250, 0]);
+    else ed.tonos[n].push(b.dataset.ctsegadd === "pausa" ? [0, 0, 50, 0] : [1000, 0, 100, 2048]);
+    S.tonosSucio.add(n); return renderTonos();
   }
   if (b.dataset.ctdel) {
     const esNuevo = !(S.tonosSt.tonos || []).some((x) => x.nombre === b.dataset.ctdel);
@@ -1986,6 +2006,11 @@ document.addEventListener("change", (e) => {
   if (!e.target.closest("#tonosBox")) return;
   const ed = S.tonosEd, t = e.target;
   if (t.dataset.ctuso) { ed.uso[t.dataset.ctuso] = t.value; return renderTonos(); }
+  if (t.dataset.ctcopia) {
+    if (!t.value || !ed.tonos[t.value]) return;
+    ed.tonos[t.dataset.ctcopia] = ed.tonos[t.value].map((x) => x.slice());
+    S.tonosSucio.add(t.dataset.ctcopia); return renderTonos();
+  }
   if (t.dataset.ctv) {
     const n = t.closest("[data-ct]").dataset.ct, [i, j] = t.dataset.ctv.split(":").map(Number);
     const max = [4000, 4000, 5000, 16384][j], min = j === 2 ? 10 : 0;
