@@ -933,3 +933,24 @@ body.rol-lectura .fav-tab { pointer-events: auto; }
   .fe-en { flex: 1 1 100%; }
   .fe-en select { flex: 1; max-width: none; }
 }
+
+/* Tonos de cortesía */
+.ct-uso { display: grid; grid-template-columns: 1fr minmax(180px, 280px) auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); }
+.ct-uso:first-of-type { border-top: 0; }
+.ct-uso small { display: block; font-size: .78rem; }
+.ct-uso select { margin: 0; }
+.ct-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; margin: 14px 0 8px; }
+.ct-card { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: var(--surface2); }
+.ct-card.sucio { border-color: var(--accent); }
+.ct-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.ct-head .ct-acc { margin-left: auto; display: flex; gap: 6px; }
+.ct-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) 32px; gap: 6px; margin-bottom: 4px; }
+.ct-seg input { margin: 0; padding: 5px 6px; font-size: .85rem; min-width: 0; }
+.ct-segh span { font-size: .7rem; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; }
+.ct-res { font-size: .78rem; }
+.ct-ayuda { font-size: .82rem; }
+@media (max-width: 600px) {
+  .ct-uso { grid-template-columns: 1fr auto; }
+  .ct-uso > div { grid-column: 1 / -1; }
+  .ct-lista { grid-template-columns: 1fr; }
+}

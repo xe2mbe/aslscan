@@ -492,6 +492,28 @@ def irlp_accion(req, accion):
     return ok(hecho=hecho)
 
 
+# ── Tonos de cortesía (rpt.conf) ─────────────────────────────────────────────
+@app.route("/api/tonos", rol="admin")
+def tonos(req):
+    from . import rptconf
+    return jsonr(rptconf.estado(settings.load()))
+
+
+@app.route("/api/tonos", ("PUT",), rol="admin")
+def tonos_guardar(req):
+    from . import rptconf
+    b = req.json()
+    st = rptconf.guardar(settings.load(), b.get("tonos") or {}, b.get("uso") or {}, b.get("borrar") or [])
+    log.info("%s cambió los tonos de cortesía en rpt.conf", req.user["usuario"])
+    return ok(**st)
+
+
+@app.route("/api/tonos/aplicar", ("POST",), rol="admin")
+def tonos_aplicar(req):
+    from . import rptconf
+    return ok(aplicando=rptconf.aplicar(settings.load(), req.user["usuario"]))
+
+
 # ── Ajustes ──────────────────────────────────────────────────────────────────
 NUM_KEYS = {"ab_keep": int, "ab_recv_keep": int, "hub_alerta_min": int}
 BOOL_KEYS = {"tg_enabled", "tg_on_backup", "tg_on_health", "tg_bot_on", "ab_tg_on", "hub_on", "tg_on_nodes",

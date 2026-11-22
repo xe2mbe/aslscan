@@ -27,6 +27,9 @@
   const D = {
 
     // ── ASLSCAN ──
+    "Tonos": "Tones", "Tonos de cortesía": "Courtesy tones",
+    "El tono que suena cuando alguien suelta el PTT. Se guarda en": "The tone that plays when someone releases the PTT. It's saved in",
+    "(con copia del archivo anterior) y se aplica al reiniciar Asterisk.": "(with a copy of the previous file) and applied when Asterisk restarts.",
     "El dashboard de tu nodo": "Your node's dashboard",
     "Nodo, usuarios, Telegram y respaldos": "Node, users, Telegram and backups",
     "Probar conexión con el nodo": "Test the connection with the node",

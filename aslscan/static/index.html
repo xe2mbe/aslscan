@@ -150,6 +150,7 @@
         <aside class="settings-nav" id="setNav">
           <button data-set="nodo" class="active">Nodo</button>
           <button data-set="usuarios">Usuarios</button>
+          <button data-set="tonos" id="setNavTonos">Tonos</button>
           <button data-set="telegram">Telegram</button>
           <button data-set="respaldo">Respaldo</button>
           <button data-set="sistema">Sistema</button>
@@ -176,6 +177,12 @@
               <button type="button" class="btn" id="btnTestNode">Probar conexión con el nodo</button>
               <span id="testNodeMsg" class="muted"></span>
             </div>
+          </fieldset>
+
+          <fieldset data-set="tonos" class="hidden">
+            <legend>Tonos de cortesía</legend>
+            <p class="muted" style="margin-top:0">El tono que suena cuando alguien suelta el PTT. Se guarda en <code translate="no">rpt.conf</code> (con copia del archivo anterior) y se aplica al reiniciar Asterisk.</p>
+            <div id="tonosBox"><p class="muted">Cargando…</p></div>
           </fieldset>
 
           <fieldset data-set="telegram" class="hidden">

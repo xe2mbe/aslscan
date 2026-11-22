@@ -456,11 +456,12 @@ function showSet(k) {
       b.scrollIntoView({ block: "nearest", inline: "nearest" });
   });
   $$("#setForm fieldset").forEach((f) => f.classList.toggle("hidden", f.dataset.set !== k));
-  $("#saveBar").classList.toggle("hidden", ["sistema", "usuarios"].includes(k) || (k === "respaldo" && S.bkSub === "manual"));
+  $("#saveBar").classList.toggle("hidden", ["sistema", "usuarios", "tonos"].includes(k) || (k === "respaldo" && S.bkSub === "manual"));
   if (k === "sistema") loadSistema();
   if (k === "respaldo") loadRespaldo();
   if (k === "usuarios") loadUsers();
   if (k === "telegram") loadBotSt();
+  if (k === "tonos") loadTonos();
   if (k === "sistema") loadHubSt();
 }
 async function loadBotSt() {
@@ -498,6 +499,9 @@ async function loadAjustes() {
   f.hub_token.placeholder = S.cfg.hub_token_set ? "•••••• (guardado; escribe para cambiarlo)" : "Vacío = el del respaldo";
   $("#detectHint").textContent = `Detectado en este equipo: ${{ asl3: "AllStarLink 3", hamvoip: "HamVOIP", asl: "AllStarLink" }[info.sabor] || info.detectado.toUpperCase()}${info.nodo_detectado ? " · nodo " + info.nodo_detectado : ""}`;
   applyLogo(S.logo);
+  const esAsl = (S.cfg.backend && S.cfg.backend !== "auto" ? S.cfg.backend : info.detectado) === "asl";
+  $("#setNavTonos").classList.toggle("hidden", !esAsl);
+  if (!esAsl && S.setSec === "tonos") S.setSec = "nodo";
   showSet(S.setSec);
 }
 $("#setForm").onsubmit = async (e) => {
@@ -1851,6 +1855,144 @@ $("#btnCloseOthers").onclick = async () => {
   try { await run(() => api("api/mis-sesiones/otras", { method: "POST" }), "Listo: solo queda esta sesión"); loadMyAccount(); } catch {}
 };
 
+
+/* ── Tonos de cortesía (rpt.conf) ────────────────────────────────────────── */
+const USOS_CT = [["unlinkedct", "Sin enlaces", "Cuando el nodo no está conectado a otros"],
+  ["remotect", "Con enlaces", "Cuando el nodo está conectado a otros nodos"],
+  ["linkunkeyct", "Al soltar un nodo enlazado", "Cuando termina de hablar alguien que llega por un enlace"]];
+const ctNum = (n) => +String(n).replace(/\D/g, "") || 0;
+const ctResumen = (segs) => segs ? segs.filter((x) => x[0] || x[1]).map((x) => x[1] ? `${x[0]}+${x[1]} Hz` : `${x[0]} Hz`).join(" · ") +
+  ` · ${segs.reduce((a, x) => a + x[2], 0)} ms` : LG("archivo de sonido", "sound file");
+let tonoCtx = null;
+function tonoTocar(segs) {
+  if (!segs || !segs.length) return;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!tonoCtx) tonoCtx = new Ctx();
+  const ctx = tonoCtx;
+  if (ctx.state === "suspended") ctx.resume();
+  let t = ctx.currentTime + 0.05;
+  for (const [f1, f2, ms, amp] of segs) {
+    const dur = ms / 1000, vol = Math.min(0.9, amp / 8192) * ((f1 && f2) ? 0.5 : 1);
+    for (const f of [f1, f2]) {
+      if (!f || !vol) continue;
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = f; o.type = "sine";
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.004);
+      g.gain.setValueAtTime(vol, t + Math.max(0.005, dur - 0.004)); g.gain.linearRampToValueAtTime(0, t + dur);
+      o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + dur + 0.01);
+    }
+    t += dur;
+  }
+}
+async function loadTonos() {
+  const box = $("#tonosBox");
+  let st;
+  try { st = await api("api/tonos"); } catch (e) { box.innerHTML = `<p class="muted">${esc(e.message)}</p>`; return; }
+  S.tonosSt = st;
+  S.tonosEd = { tonos: {}, uso: {}, borrar: [] };
+  for (const t of st.tonos || []) S.tonosEd.tonos[t.nombre] = t.segmentos ? t.segmentos.map((x) => x.slice()) : null;
+  for (const [k] of USOS_CT) S.tonosEd.uso[k] = ((st.uso || {})[k] || {}).valor || "";
+  S.tonosSucio = new Set();
+  renderTonos();
+  if (st.aplicando && st.aplicando.estado === "aplicando") setTimeout(() => { if (S.setSec === "tonos") loadTonos(); }, 3000);
+}
+function renderTonos() {
+  const box = $("#tonosBox"), st = S.tonosSt, ed = S.tonosEd;
+  if (!st.disponible) { box.innerHTML = `<p class="muted">${esc(st.motivo || "")}</p>`; return; }
+  const nombres = Object.keys(ed.tonos).filter((n) => !ed.borrar.includes(n)).sort((a, b) => ctNum(a) - ctNum(b));
+  const ap = st.aplicando || {};
+  const sucio = S.tonosSucio.size || USOS_CT.some(([k]) => ed.uso[k] !== (((st.uso || {})[k] || {}).valor || "")) || ed.borrar.length;
+  let aviso = "";
+  if (ap.estado === "aplicando") aviso = `<div class="upd-box new"><b>⏳ ${esc(ap.mensaje)}</b><div class="muted" style="font-size:.84rem">${LG("Los enlaces se cortan unos segundos y se reconectan solos.", "Links drop for a few seconds and reconnect by themselves.")}</div></div>`;
+  else if (st.pendiente) aviso = `<div class="upd-box new"><div class="upd-head"><div><b>⚠ ${LG("Hay cambios guardados en rpt.conf que todavía no se aplican", "There are saved changes in rpt.conf not applied yet")}</b>
+      <div class="muted" style="font-size:.84rem">${LG("Asterisk los lee al reiniciarse. Los enlaces se cortan unos segundos y se reconectan solos.", "Asterisk reads them when it restarts. Links drop for a few seconds and reconnect by themselves.")}</div></div>
+      ${st.puede_aplicar ? `<button type="button" class="btn sm primary" id="btnTonosAplicar">${LG("Aplicar ahora (reinicia Asterisk)", "Apply now (restarts Asterisk)")}</button>` : `<span class="muted">${LG("Reinicia Asterisk desde la terminal: sudo systemctl restart asterisk", "Restart Asterisk from the terminal: sudo systemctl restart asterisk")}</span>`}</div></div>`;
+  else if (ap.estado === "ok" || ap.estado === "error") aviso = `<div class="upd-box${ap.estado === "error" ? " new" : ""}"><b>${ap.estado === "ok" ? "✅" : "❌"} ${esc(ap.mensaje)}</b></div>`;
+  const opts = (sel) => `<option value="">${LG("— ninguno —", "— none —")}</option>` + nombres.map((n) =>
+    `<option value="${esc(n)}" ${n === sel ? "selected" : ""}>${esc(n)} · ${esc(ctResumen(ed.tonos[n]))}</option>`).join("");
+  const usado = (n) => USOS_CT.filter(([k]) => ed.uso[k] === n).map(([, l]) => LG(l, { "Sin enlaces": "Unlinked", "Con enlaces": "Linked", "Al soltar un nodo enlazado": "Link unkey" }[l]));
+  const propio = (n) => { const t = (st.tonos || []).find((x) => x.nombre === n); return !t || t.propio; };
+  box.innerHTML = aviso + `
+    <div class="bk-card"><h4>${LG("Cuándo suena cada tono", "When each tone plays")}</h4>
+      ${USOS_CT.map(([k, l, h]) => `<div class="ct-uso"><div><b>${LG(l, { "Sin enlaces": "Not linked", "Con enlaces": "Linked", "Al soltar un nodo enlazado": "When a linked node unkeys" }[l])}</b><small class="muted">${LG(h, { "Cuando el nodo no está conectado a otros": "When the node isn't connected to others", "Cuando el nodo está conectado a otros nodos": "When the node is connected to other nodes", "Cuando termina de hablar alguien que llega por un enlace": "When someone coming through a link stops talking" }[h])}</small></div>
+        <select data-ctuso="${k}" translate="no">${opts(ed.uso[k])}</select>
+        <button type="button" class="btn sm" data-ctplay="${esc(ed.uso[k])}" ${ed.uso[k] && ed.tonos[ed.uso[k]] ? "" : "disabled"} title="${LG("Escuchar", "Listen")}">▶</button></div>`).join("")}
+    </div>
+    <div class="ct-lista">${nombres.map((n) => {
+      const segs = ed.tonos[n], u = usado(n);
+      return `<div class="ct-card${S.tonosSucio.has(n) ? " sucio" : ""}" data-ct="${esc(n)}" translate="no">
+        <div class="ct-head"><b>${esc(n)}</b>${u.length ? `<span class="chip ok">${esc(u.join(" · "))}</span>` : ""}${propio(n) ? "" : `<span class="chip" title="${LG("Viene de la plantilla de ASL; al cambiarlo se guarda en tu sección", "Comes from the ASL template; changing it saves it in your section")}">${LG("plantilla", "template")}</span>`}
+          <span class="ct-acc"><button type="button" class="btn sm" data-ctplay="${esc(n)}" ${segs ? "" : "disabled"}>▶ ${LG("Escuchar", "Listen")}</button>
+          ${propio(n) && !u.length && (st.tonos || []).some((x) => x.nombre === n) ? `<button type="button" class="btn sm ghost" data-ctdel="${esc(n)}" title="${LG("Borrar", "Delete")}">🗑</button>` : ""}
+          ${!(st.tonos || []).some((x) => x.nombre === n) ? `<button type="button" class="btn sm ghost" data-ctdel="${esc(n)}" title="${LG("Quitar", "Remove")}">✕</button>` : ""}</span></div>
+        ${segs ? `<div class="ct-segs"><div class="ct-seg ct-segh"><span>${LG("Tono 1 (Hz)", "Tone 1 (Hz)")}</span><span>${LG("Tono 2 (Hz)", "Tone 2 (Hz)")}</span><span>ms</span><span>${LG("Volumen", "Volume")}</span><span></span></div>
+          ${segs.map((x, i) => `<div class="ct-seg">${x.map((v, j) => `<input type="number" inputmode="numeric" data-ctv="${i}:${j}" value="${v}" min="0" max="${[4000, 4000, 5000, 16384][j]}" step="${j === 3 ? 256 : j === 2 ? 10 : 1}">`).join("")}
+            <button type="button" class="btn sm ghost" data-ctsegdel="${i}" ${segs.length < 2 ? "disabled" : ""} title="${LG("Quitar pitido", "Remove beep")}">✕</button></div>`).join("")}
+          <div class="row gap wrap"><button type="button" class="btn sm" data-ctsegadd="tono">＋ ${LG("Pitido", "Beep")}</button><button type="button" class="btn sm" data-ctsegadd="pausa">＋ ${LG("Pausa", "Pause")}</button>
+            <span class="muted ct-res">${esc(ctResumen(segs))}</span></div></div>`
+          : `<p class="muted">${LG("Es un archivo de sonido", "It's a sound file")}: <code>${esc(((st.tonos || []).find((x) => x.nombre === n) || {}).valor)}</code></p>`}
+      </div>`;
+    }).join("")}</div>
+    <p class="muted ct-ayuda">${LG("Frecuencia 0 = silencio. Con dos frecuencias suenan juntas (como DTMF). Volumen normal: 2048.", "Frequency 0 = silence. With two frequencies they sound together (like DTMF). Normal volume: 2048.")}</p>
+    <div class="row gap wrap"><button type="button" class="btn" id="btnCtNuevo">＋ ${LG("Nuevo tono", "New tone")}</button>
+      <button type="button" class="btn primary" id="btnCtGuardar" ${sucio ? "" : "disabled"}>${LG("Guardar en rpt.conf", "Save to rpt.conf")}</button>
+      ${sucio ? `<span class="muted">${LG("Cambios sin guardar", "Unsaved changes")}</span>` : ""}</div>`;
+}
+document.addEventListener("click", async (e) => {
+  if (!e.target.closest("#tonosBox")) return;
+  const ed = S.tonosEd;
+  const card = e.target.closest("[data-ct]"), n = card && card.dataset.ct;
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.ctplay !== undefined) return tonoTocar(ed.tonos[b.dataset.ctplay]);
+  if (b.dataset.ctsegdel !== undefined) { ed.tonos[n].splice(+b.dataset.ctsegdel, 1); S.tonosSucio.add(n); return renderTonos(); }
+  if (b.dataset.ctsegadd) {
+    if (ed.tonos[n].length >= 12) return toast(LG("Máximo 12 pitidos por tono", "At most 12 beeps per tone"), true);
+    ed.tonos[n].push(b.dataset.ctsegadd === "pausa" ? [0, 0, 50, 0] : [1000, 0, 100, 2048]); S.tonosSucio.add(n); return renderTonos();
+  }
+  if (b.dataset.ctdel) {
+    const esNuevo = !(S.tonosSt.tonos || []).some((x) => x.nombre === b.dataset.ctdel);
+    if (esNuevo) { delete ed.tonos[b.dataset.ctdel]; S.tonosSucio.delete(b.dataset.ctdel); }
+    else if (await confirmBox(LG(`¿Borrar ${b.dataset.ctdel} de rpt.conf?`, `Delete ${b.dataset.ctdel} from rpt.conf?`), LG("Borrar", "Delete"))) { ed.borrar.push(b.dataset.ctdel); S.tonosSucio.delete(b.dataset.ctdel); }
+    return renderTonos();
+  }
+  if (b.id === "btnCtNuevo") {
+    let i = 1; while (ed.tonos["ct" + i] !== undefined && !ed.borrar.includes("ct" + i)) i++;
+    if (i > 99) return;
+    ed.borrar = ed.borrar.filter((x) => x !== "ct" + i);
+    ed.tonos["ct" + i] = [[1000, 0, 100, 2048]]; S.tonosSucio.add("ct" + i);
+    renderTonos();
+    const c = $(`#tonosBox [data-ct="ct${i}"]`); if (c) c.scrollIntoView({ block: "center" });
+    return;
+  }
+  if (b.id === "btnCtGuardar") {
+    const tonos = {};
+    for (const nn of S.tonosSucio) if (ed.tonos[nn]) tonos[nn] = ed.tonos[nn];
+    busy(b, true, LG("Guardando…", "Saving…"));
+    try {
+      await api("api/tonos", { method: "PUT", json: { tonos, uso: ed.uso, borrar: ed.borrar } });
+      toast(LG("Guardado en rpt.conf", "Saved to rpt.conf")); loadTonos();
+    } catch (err) { toast(err.message, true); busy(b, false); }
+    return;
+  }
+  if (b.id === "btnTonosAplicar") {
+    if (!(await confirmBox(LG("Se va a reiniciar Asterisk para aplicar los tonos. Los enlaces se cortan unos segundos y se reconectan solos. Si el nodo no vuelve, se regresa la configuración anterior. ¿Continuar?",
+      "Asterisk will restart to apply the tones. Links drop for a few seconds and reconnect by themselves. If the node doesn't come back, the previous configuration is restored. Continue?"), LG("Reiniciar Asterisk", "Restart Asterisk")))) return;
+    try { await api("api/tonos/aplicar", { method: "POST" }); } catch (err) { return toast(err.message, true); }
+    loadTonos();
+  }
+});
+document.addEventListener("change", (e) => {
+  if (!e.target.closest("#tonosBox")) return;
+  const ed = S.tonosEd, t = e.target;
+  if (t.dataset.ctuso) { ed.uso[t.dataset.ctuso] = t.value; return renderTonos(); }
+  if (t.dataset.ctv) {
+    const n = t.closest("[data-ct]").dataset.ct, [i, j] = t.dataset.ctv.split(":").map(Number);
+    const max = [4000, 4000, 5000, 16384][j], min = j === 2 ? 10 : 0;
+    ed.tonos[n][i][j] = Math.max(min, Math.min(max, Math.round(+t.value || 0)));
+    S.tonosSucio.add(n); renderTonos();
+  }
+});
 
 const fmtTs = (ts) => {
   if (!ts) return "—";

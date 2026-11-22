@@ -215,6 +215,10 @@ if [ "$RUN_USER" != root ] && command -v sudo >/dev/null 2>&1 && [ -d /etc/sudoe
   TMP=$(mktemp)
   echo "# ASLSCAN (created by install.sh; removed by uninstall.sh)" > "$TMP"
   [ "$HAS_IRLP" = 1 ] && [ "$RUN_USER" != repeater ] && echo "$RUN_USER ALL=(repeater) NOPASSWD: $APP_DIR/bin/aslscan-irlp" >> "$TMP"
+  # Settings → Tones writes rpt.conf; Asterisk only reads it when restarted
+  # (systemctl restart asterisk; never "rpt restart", which corrupts app_rpt on ASL3)
+  SYSTEMCTL=$(command -v systemctl || echo /usr/bin/systemctl)
+  [ "$HAS_ASL" = 1 ] && [ "$TYPE" = asl ] && echo "$RUN_USER ALL=(root) NOPASSWD: $SYSTEMCTL restart asterisk" >> "$TMP"
   if [ "$HAS_ASL" = 1 ] && [ "$TYPE" = irlp ]; then
     AST_USER=$(ps -o user= -C asterisk 2>/dev/null | head -1 | tr -d ' ' || true)
     [ -n "$AST_USER" ] && [ "$AST_USER" != "$RUN_USER" ] && echo "$RUN_USER ALL=($AST_USER) NOPASSWD: $AST -rx *" >> "$TMP"
@@ -222,7 +226,7 @@ if [ "$RUN_USER" != root ] && command -v sudo >/dev/null 2>&1 && [ -d /etc/sudoe
   if [ "$(wc -l < "$TMP")" -gt 1 ]; then
     if visudo -cf "$TMP" >/dev/null 2>&1; then
       install -m 440 -o root -g root "$TMP" "$SUDOERS"
-      c_ok "sudo rules for connections in $SUDOERS"
+      c_ok "sudo rules (connections, restart Asterisk) in $SUDOERS"
     else
       c_warn "Could not validate the sudo rule"
     fi
