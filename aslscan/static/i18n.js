@@ -25,6 +25,18 @@
     jueves: "Thursday", viernes: "Friday", "sábado": "Saturday" };
 
   const D = {
+    "El nombre exacto de la región de tu recurso, todo junto: southcentralus, eastus…": "Your resource's exact region name, all together: southcentralus, eastus…",
+    // Programación → Anuncios y Ajustes → Voz
+    "Anuncios cortos que el nodo transmite solo": "Short announcements the node transmits on its own",
+    "＋ Nuevo anuncio": "＋ New announcement", "📢 Anuncios": "📢 Announcements", "Bitácora de anuncios": "Announcement log",
+    "Voz de los anuncios": "Announcement voice",
+    "La voz que lee el texto de los anuncios (Programación → Anuncios).": "The voice that reads the announcements' text (Schedule → Announcements).",
+    "Automático: Piper si está instalado; si no, Azure": "Automatic: Piper if installed; otherwise Azure",
+    "Azure — voces neuronales (requiere internet y clave)": "Azure — neural voices (needs internet and a key)",
+    "Piper — voz local de ASL3 (asl3-tts)": "Piper — ASL3 local voice (asl3-tts)",
+    "eSpeak NG — local, voz sintética": "eSpeak NG — local, synthetic voice",
+    "Portal de Azure → tu recurso de Speech → Claves y punto de conexión.": "Azure portal → your Speech resource → Keys and endpoint.",
+    "Se oye con la voz guardada: si cambiaste algo, guarda primero.": "It uses the saved voice: if you changed something, save first.",
     // Bot de Telegram apagado (perfil, sin ser administrador)
     "El bot de Telegram no está activo en este nodo. Pídele al administrador que lo active.":
       "The Telegram bot isn't active on this node. Ask the administrator to turn it on.",

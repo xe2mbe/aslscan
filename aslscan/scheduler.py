@@ -7,7 +7,7 @@ import logging
 import os
 import time
 
-from . import autobackup, paths
+from . import anuncios, autobackup, paths
 
 log = logging.getLogger("aslscan.tareas")
 
@@ -35,6 +35,10 @@ def loop():
             autobackup.tick(dt.datetime.now())
         except Exception:
             log.exception("Error en el respaldo automático")
+        try:
+            anuncios.tick()
+        except Exception:
+            log.exception("Error al revisar los anuncios")
         if time.time() - ultimo_tmp > 3600:
             ultimo_tmp = time.time()
             _limpiar_tmp()

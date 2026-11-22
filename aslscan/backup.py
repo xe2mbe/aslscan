@@ -8,6 +8,7 @@ El respaldo es un .tar.gz con:
   rclone.conf            acceso a Google Drive / OneDrive del respaldo automático
   logo_*.png|jpg|…       logo de la estación
   fotos/                 fotos de los usuarios
+  anuncios/              audios de los anuncios programados
 
 Se arma mientras se descarga (no ocupa espacio en la tarjeta SD salvo una
 copia de la base de datos). No se respaldan tmp/ ni la bitácora.
@@ -35,7 +36,7 @@ MANIFEST = "aslscan-respaldo.json"
 APP = "aslscan"
 FORMATO = 1
 LOGO_RE = re.compile(r"^logo_[A-Za-z0-9]+\.(png|jpg|webp|gif)$")
-CARPETAS = ("fotos",)
+CARPETAS = ("fotos", "anuncios")
 # Ajustes que describen a ESTE nodo; se conservan al restaurar un respaldo
 # de otro nodo si así se pide. secret_key nunca se toma del respaldo.
 NODE_KEYS = {"backend", "node", "station_name", "logo_file"}
@@ -86,7 +87,7 @@ def _files(folder):
 def estimate():
     """Tamaño aproximado (bytes) con y sin audios, para mostrarlo antes."""
     base = sum(f.stat().st_size for f in [paths.db_file(), paths.settings_file()] if f.is_file())
-    base += sum(f.stat().st_size for f in _files("fotos"))
+    base += sum(f.stat().st_size for c in CARPETAS for f in _files(c))
     logo = settings.get("logo_file") or ""
     if logo and (paths.data_dir() / logo).is_file():
         base += (paths.data_dir() / logo).stat().st_size

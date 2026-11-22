@@ -42,13 +42,23 @@ DEFAULTS = {
     "ab_cloud_folder": "ASLSCAN",
     "ab_recv_keep": 7,            # al recibir: respaldos por nodo
 
+    # Voz de los anuncios (tts.py)
+    "tts_engine": "",           # azure | piper | espeak (vacío = Piper si está, si no Azure)
+    "azure_key": "",
+    "azure_region": "",
+    "azure_voice": "es-MX-DaliaNeural",
+    "azure_style": "general",
+    "azure_rate": 100,
+    "azure_pitch": 0,
+    "espeak_voice": "es-419",
+
     # Seguridad
     "password_hash": "",
     "secret_key": "",
 }
 
 # Claves que nunca se mandan al navegador
-SECRET_KEYS = {"password_hash", "secret_key", "tg_token", "ab_node_token", "hub_token"}
+SECRET_KEYS = {"password_hash", "secret_key", "tg_token", "ab_node_token", "hub_token", "azure_key"}
 
 _lock = threading.Lock()
 _cache = None
@@ -109,4 +119,5 @@ def public():
     out["tg_token_set"] = bool(cfg.get("tg_token"))
     out["ab_node_token_set"] = bool(cfg.get("ab_node_token"))
     out["hub_token_set"] = bool(cfg.get("hub_token"))
+    out["azure_key_set"] = bool(cfg.get("azure_key"))
     return out

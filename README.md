@@ -19,6 +19,7 @@ ASLSCAN is the **Dashboard of [HAMNA Web](https://github.com/xe2mbe/hamna)** as 
 - **Node search** in the AllStar directory by callsign, node number, description or location, with **● Online / ● No reply / ○ Offline** labels (AllStar DNS + IAX POKE).
 - **IRLP**: the node or reflector it's connected to, COS/PTT, the other nodes on the reflector, connect/disconnect, enable/disable, inactivity timeout, AUX outputs, DTMF, the IRLP log and the switch to turn the old IRLPvCON off.
 - **🔊 Live listening** from the page (8 kHz, up to 8 listeners).
+- **📢 Announcements** (Schedule → Announcements): short announcements (up to 60 s) that the node transmits on its own at given times, every N minutes or once, read by a voice (Azure or Piper/asl3-tts), uploaded or recorded from the page; they wait for a quiet channel and never interrupt (AllStar nodes).
 - **Telegram bot**: 📋 Menu → 🔗 Connections (see, connect with your favorites by category or by number, change the mode, disconnect), 🩺 Health and 🗺 Nodes. Alerts for health, failed backups and nodes that stop reporting.
 - **Nodes panel**: each node reports its health, device and version to a hub every minute. ASLSCAN and HAMNA Web nodes can report to the same hub.
 - **Users** with roles (administrator, operator, read only), sessions, attempt lockout, photo and language (English / Spanish).
@@ -32,6 +33,7 @@ ASLSCAN is the **Dashboard of [HAMNA Web](https://github.com/xe2mbe/hamna)** as 
 | **Node** | Node number, station name and logo; test the connection with Asterisk / IRLP |
 | **Tones** (ASL3) | The courtesy tones in rpt.conf: listen in the browser, edit beeps and pauses, which tone plays when the node is linked or not, the pause before the tone (unkeywait) and the hang time. A copy is kept before each change; **Apply** restarts Asterisk and goes back to the previous file if the node doesn't come back |
 | **Users** | Same as HAMNA: create, edit, roles, sessions, lockouts |
+| **Voice** | The voice for announcements: Azure (key, region, voice, style, speed, pitch) or Piper (`sudo apt install asl3-tts`), with a test |
 | **Telegram** | The bot (token, chat), who has it linked, and the alerts |
 | **Backup** | Automatic, download and restore, receive from other nodes |
 | **System** | Updates, equipment health, live audio, node info, IRLPvCON and the nodes panel |
@@ -70,6 +72,19 @@ sudo /opt/aslscan/update.sh
 ```
 
 It installs the newest release (`vX.Y.Z` tag) and keeps users, favorites and settings; it backs up first to `/var/backups/aslscan/`. **Settings → System** says when there's a new version.
+
+### Announcements
+
+**Schedule → Announcements**: short announcements (up to 60 s) that the node transmits on its own.
+
+- **What it says**: text read by the voice of Settings → Voice (with `{hora}`, `{dia}`, `{fecha}`, `{fecha_larga}`, `{saludo}`, `{despedida}`, `{nodo}`; if the text has variables the voice is generated again right before it goes out), an uploaded audio file, or a recording made from the page (needs https). Uploads and recordings are converted in the browser.
+- **When**: at given times on the chosen days, every N minutes within a time window, or just once; optionally only between two dates.
+- **Where**: only this node's radio (`rpt localplay`) or also the linked nodes (`rpt playback`).
+- **It never interrupts**: it waits for the channel to be quiet (nobody receiving, transmitting or talking through a link) for 3 s; if the channel doesn't clear in 5 min, that slot is skipped and logged.
+- Each card has ▶ Listen, 📡 Transmit now, pause/activate, edit and delete, plus the next slot and the last result; the **announcement log** shows what went out, what was skipped and why. Administrators and operators create them; read-only users see them.
+- They're included in backups.
+
+Announcements need no ffmpeg or sox: everything is stored as 8 kHz WAV, which Asterisk reads directly.
 
 ### Live listening
 
@@ -130,6 +145,7 @@ ASLSCAN es el **Dashboard de [HAMNA Web](https://github.com/xe2mbe/hamna)** como
 - **Buscador de nodos** en el directorio de AllStar por indicativo, número, descripción o lugar, con etiquetas **● En línea / ● Sin resp. / ○ Apagado** (DNS de AllStar + POKE de IAX).
 - **IRLP**: a qué nodo o reflector está conectado, COS/PTT, los demás nodos del reflector, conectar/desconectar, habilitar/deshabilitar, desconexión por inactividad, salidas AUX, DTMF, la bitácora de IRLP y el botón para apagar el viejo IRLPvCON.
 - **🔊 Escuchar en vivo** desde la página (8 kHz, hasta 8 personas).
+- **📢 Anuncios** (Programación → Anuncios): anuncios cortos (hasta 60 s) que el nodo transmite solo a ciertas horas, cada N minutos o una vez, con voz (Azure o Piper/asl3-tts), subidos o grabados desde la página; esperan a que el canal esté libre y nunca interrumpen (nodos AllStar).
 - **Bot de Telegram**: 📋 Menú → 🔗 Conexiones (ver, conectar con tus favoritos por categoría o por número, cambiar el modo, desconectar), 🩺 Salud y 🗺 Nodos. Avisos de salud, de respaldos fallidos y de nodos que dejan de reportar.
 - **Panel de nodos**: cada nodo manda a un hub su salud, equipo y versión cada minuto. Los nodos con ASLSCAN y con HAMNA Web pueden reportar al mismo hub.
 - **Usuarios** con roles (administrador, operador, solo lectura), sesiones, bloqueo por intentos, foto e idioma (inglés / español).
@@ -143,6 +159,7 @@ ASLSCAN es el **Dashboard de [HAMNA Web](https://github.com/xe2mbe/hamna)** como
 | **Nodo** | Número de nodo, nombre de la estación y logo; probar la conexión con Asterisk / IRLP |
 | **Tonos** (ASL3) | Los tonos de cortesía de rpt.conf: escucharlos en el navegador, editar pitidos y pausas, qué tono suena con el nodo enlazado o sin enlaces, la pausa antes del tono (unkeywait) y la cola (hangtime). Se guarda una copia antes de cada cambio; **Aplicar** reinicia Asterisk y regresa al archivo anterior si el nodo no vuelve |
 | **Usuarios** | Igual que en HAMNA: crear, editar, roles, sesiones, bloqueos |
+| **Voz** | La voz de los anuncios: Azure (clave, región, voz, estilo, velocidad, tono) o Piper (`sudo apt install asl3-tts`), con prueba |
 | **Telegram** | El bot (token, chat), quién lo tiene vinculado y los avisos |
 | **Respaldo** | Automático, descargar y restaurar, recibir de otros nodos |
 | **Sistema** | Actualizaciones, salud del equipo, audio en vivo, datos del nodo, IRLPvCON y el panel de nodos |
@@ -181,6 +198,19 @@ sudo /opt/aslscan/update.sh
 ```
 
 Instala la versión publicada más nueva (etiqueta `vX.Y.Z`) y conserva usuarios, favoritos y ajustes; antes respalda en `/var/backups/aslscan/`. **Ajustes → Sistema** avisa cuando hay versión nueva.
+
+### Anuncios
+
+**Programación → Anuncios**: anuncios cortos (hasta 60 s) que el nodo transmite solo.
+
+- **Qué dice**: un texto que lee la voz de Ajustes → Voz (con `{hora}`, `{dia}`, `{fecha}`, `{fecha_larga}`, `{saludo}`, `{despedida}`, `{nodo}`; si el texto lleva variables la voz se genera otra vez justo antes de salir), un audio subido o una grabación hecha desde la página (requiere https). Lo subido y lo grabado se convierte en el navegador.
+- **Cuándo**: a ciertas horas los días elegidos, cada N minutos dentro de un horario, o una sola vez; si quieres, solo entre dos fechas.
+- **Dónde**: solo el radio de este nodo (`rpt localplay`) o también los nodos enlazados (`rpt playback`).
+- **Nunca interrumpe**: espera a que el canal esté en silencio 3 s (nadie recibiendo, transmitiendo ni hablando por un enlace); si en 5 min no se libera, ese turno se salta y queda en la bitácora.
+- Cada tarjeta tiene ▶ Escuchar, 📡 Transmitir ahora, pausar/activar, editar y borrar, con el próximo turno y el último resultado; la **bitácora de anuncios** dice qué salió, qué se saltó y por qué. Los crean el administrador y los operadores; solo lectura los ve.
+- Entran en los respaldos.
+
+Los anuncios no necesitan ffmpeg ni sox: todo se guarda en WAV 8 kHz, que Asterisk lee directo.
 
 ### Escuchar en vivo
 

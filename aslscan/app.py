@@ -3,6 +3,7 @@ ASLSCAN — API HTTP y página. Funciona con Python 3.5 a 3.13 sin paquetes extr
 """
 import binascii
 import datetime as dt
+import json
 import logging
 import os
 import re
@@ -11,7 +12,7 @@ import time
 import uuid
 from pathlib import Path
 
-from . import VERSION, auth, autobackup, backends, backup, health, db, links, notify, paths, sessions, settings, sysmon, updates
+from . import VERSION, anuncios, auth, autobackup, backends, backup, health, db, links, notify, paths, sessions, settings, sysmon, tts, updates
 from .live import live
 from .web import App, HTTPError, Response, jsonr, send_file
 
@@ -29,6 +30,8 @@ def init_app():
     app.secret = cfg["secret_key"]
     auth.init()
     autobackup.init()
+    anuncios.init()
+    anuncios.emisor.start()
     from . import hub
     hub.init()
     app.roles = auth.ROLES
@@ -516,11 +519,12 @@ def tonos_aplicar(req):
 
 
 # ── Ajustes ──────────────────────────────────────────────────────────────────
-NUM_KEYS = {"ab_keep": int, "ab_recv_keep": int, "hub_alerta_min": int}
+NUM_KEYS = {"ab_keep": int, "ab_recv_keep": int, "hub_alerta_min": int, "azure_rate": int, "azure_pitch": int}
 BOOL_KEYS = {"tg_enabled", "tg_on_backup", "tg_on_health", "tg_bot_on", "ab_tg_on", "hub_on", "tg_on_nodes",
              "ab_enabled", "ab_node_on", "ab_cloud_on"}
 STR_KEYS = {"backend", "node", "irlp_env", "station_name", "tg_chat",
-            "ab_hora", "ab_node_url", "ab_node_pin", "ab_cloud_folder", "hub_url", "hub_pin"}
+            "ab_hora", "ab_node_url", "ab_node_pin", "ab_cloud_folder", "hub_url", "hub_pin",
+            "tts_engine", "azure_region", "azure_voice", "azure_style", "espeak_voice"}
 
 
 @app.route("/api/ajustes")
@@ -541,7 +545,7 @@ def ajustes_save(req):
             upd[k] = v if isinstance(v, bool) else truthy(v)
         elif k in STR_KEYS:
             upd[k] = str(v).strip()
-        elif k in ("tg_token", "ab_node_token", "hub_token") and str(v).strip():
+        elif k in ("tg_token", "ab_node_token", "hub_token", "azure_key") and str(v).strip():
             upd[k] = str(v).strip()
     if "ab_hora" in upd and not re.match(r"^([01]\d|2[0-3]):[0-5]\d$", upd["ab_hora"]):
         raise ValueError("Hora del respaldo inválida (HH:MM)")
@@ -554,8 +558,108 @@ def ajustes_save(req):
         raise ValueError("Número de nodo inválido")
     if upd.get("backend") not in (None, "auto", "asl", "irlp", "simulado"):
         raise ValueError("Tipo de nodo inválido")
+    if "azure_region" in upd:              # «South Central US» → southcentralus
+        upd["azure_region"] = re.sub(r"[^a-z0-9]", "", upd["azure_region"].lower())
+    if upd.get("tts_engine") not in (None, "azure", "piper", "espeak"):
+        raise ValueError("Motor de voz inválido")
+    if "azure_rate" in upd and not 50 <= upd["azure_rate"] <= 200:
+        raise ValueError("Velocidad de la voz: de 50 a 200 %")
+    if "azure_pitch" in upd and not -50 <= upd["azure_pitch"] <= 50:
+        raise ValueError("Tono de la voz: de -50 a 50 Hz")
     settings.save(upd)
     return ok(ajustes=settings.public())
+
+
+# ── Programación → Anuncios ──────────────────────────────────────────────────
+def _anuncio_req(req, aid=None):
+    try:
+        datos = json.loads(req.form.get("datos") or "{}")
+    except ValueError:
+        raise ValueError("Datos del anuncio inválidos")
+    up = req.files.get("archivo")
+    return anuncios.guardar(datos, up.path if up else None, up.filename if up else "",
+                            req.user["usuario"], aid)
+
+
+@app.route("/api/anuncios")
+def anuncios_lista(req):
+    return jsonr(anuncios.resumen())
+
+
+@app.route("/api/anuncios", ("POST",), rol="operador")
+def anuncios_nuevo(req):
+    return ok(anuncio=_anuncio_req(req))
+
+
+@app.route("/api/anuncios/<int:aid>", ("PUT",), rol="operador")
+def anuncios_editar(req, aid):
+    return ok(anuncio=_anuncio_req(req, aid))
+
+
+@app.route("/api/anuncios/<int:aid>", ("DELETE",), rol="operador")
+def anuncios_borrar(req, aid):
+    anuncios.borrar(aid, req.user["usuario"])
+    return ok()
+
+
+@app.route("/api/anuncios/<int:aid>/activo", ("POST",), rol="operador")
+def anuncios_activo(req, aid):
+    return ok(anuncio=anuncios.activar(aid, truthy(req.json().get("activo")), req.user["usuario"]))
+
+
+@app.route("/api/anuncios/<int:aid>/ahora", ("POST",), rol="operador")
+def anuncios_ahora(req, aid):
+    a = anuncios.uno(aid)
+    if not anuncios.emisor.encolar(aid, "manual:" + req.user["usuario"]):
+        raise ValueError("Ese anuncio ya está en espera o al aire")
+    log.info("%s mandó al aire el anuncio «%s»", req.user["usuario"], a["nombre"])
+    return ok()
+
+
+@app.route("/api/anuncios/<int:aid>/audio")
+def anuncios_audio(req, aid):
+    p = anuncios.ruta(anuncios.uno(aid))
+    if not p or not p.is_file():
+        raise HTTPError(404)
+    return send_file(p, "audio/wav")
+
+
+@app.route("/api/anuncios/voz", ("POST",), rol="operador")
+def anuncios_voz(req):
+    """Escuchar el texto con la voz configurada antes de guardar."""
+    b = req.json()
+    nombre, dicho, dur = anuncios.vista_previa(str(b.get("texto") or "")[:2000], settings.load())
+    return ok(url="api/tmp/" + nombre, texto=dicho, duracion=round(dur, 1), max_seg=anuncios.MAX_SEG)
+
+
+@app.route("/api/tmp/<name>")
+def tmp_audio(req, name):
+    if not re.match(r"^voz_[0-9a-f]{8}\.wav$", name):
+        raise HTTPError(404)
+    return send_file(paths.tmp_dir() / name, "audio/wav")
+
+
+@app.route("/api/voz", rol="lectura")
+def voz_info(req):
+    cfg = settings.load()
+    return jsonr({"motores": tts.motores(), "motor": tts.motor(cfg), "lista": tts.configurado(cfg),
+                  "nombres": tts.NOMBRES, "azure_key_set": bool(cfg.get("azure_key"))})
+
+
+@app.route("/api/azure/voces", ("POST",), rol="admin")
+def azure_voces(req):
+    cfg = settings.load()
+    b = req.json()
+    key = (b.get("azure_key") or cfg.get("azure_key") or "").strip()
+    region = re.sub(r"[^a-z0-9]", "", (b.get("azure_region") or cfg.get("azure_region") or "").lower())
+    if not key or not region:
+        raise ValueError("Escribe la clave y la región de Azure")
+    try:
+        return ok(voces=tts.azure_voces(key, region))
+    except RuntimeError:
+        raise
+    except Exception as e:
+        raise RuntimeError("Azure no respondió: {}".format(e))
 
 
 # ── Respaldo y restauración ──────────────────────────────────────────────────
