@@ -14,7 +14,7 @@ ASLSCAN is the **Dashboard of [HAMNA Web](https://github.com/xe2mbe/hamna)** as 
 
 ### What it does
 
-- **Dashboard**: the nodes linked right now, with callsign and city (AllStar directory), mode, direction, time connected, IP and who is talking, plus the nodes reachable across the network; each direct link shows the favorites group it belongs to. **Connect** (transceive, monitor or local monitor) and **disconnect** one or all.
+- **Dashboard**: the nodes linked right now, with callsign and city (AllStar directory), mode, direction, time connected, IP and who is talking, plus the nodes reachable across the network; the direct links table has column headers and shows the favorites group each node belongs to. **Connect** (transceive, monitor or local monitor) and **disconnect** one or all.
 - **Favorites in categories** below the direct links, shown as tabs, each category with its own color and box (how many nodes it has and how many are connected), with an editor (rename, reorder, drag between categories). The first time they're imported from AllScan.
 - **Node search** in the AllStar directory by callsign, node number, description or location, with **● Online / ● No reply / ○ Offline** labels (AllStar DNS + IAX POKE).
 - **IRLP**: the node or reflector it's connected to, COS/PTT, the other nodes on the reflector, connect/disconnect, enable/disable, inactivity timeout, AUX outputs, DTMF, the IRLP log and the switch to turn the old IRLPvCON off.
@@ -125,7 +125,7 @@ ASLSCAN es el **Dashboard de [HAMNA Web](https://github.com/xe2mbe/hamna)** como
 
 ### Qué hace
 
-- **Dashboard**: los nodos enlazados en este momento, con indicativo y ciudad (directorio de AllStar), modo, dirección, tiempo conectado, IP y quién está hablando, y los nodos alcanzables en toda la red; cada enlace directo muestra el grupo de favoritos al que pertenece. **Conectar** (transceptor, monitor o monitor local) y **desconectar** uno o todos.
+- **Dashboard**: los nodos enlazados en este momento, con indicativo y ciudad (directorio de AllStar), modo, dirección, tiempo conectado, IP y quién está hablando, y los nodos alcanzables en toda la red; la tabla de enlaces directos tiene títulos de columna y muestra el grupo de favoritos de cada nodo. **Conectar** (transceptor, monitor o monitor local) y **desconectar** uno o todos.
 - **Favoritos por categorías** debajo de los enlaces directos, en pestañas, cada categoría con su color y su recuadro (cuántos nodos tiene y cuántos están conectados), con editor (renombrar, ordenar, arrastrar entre categorías). La primera vez se importan de AllScan.
 - **Buscador de nodos** en el directorio de AllStar por indicativo, número, descripción o lugar, con etiquetas **● En línea / ● Sin resp. / ○ Apagado** (DNS de AllStar + POKE de IAX).
 - **IRLP**: a qué nodo o reflector está conectado, COS/PTT, los demás nodos del reflector, conectar/desconectar, habilitar/deshabilitar, desconexión por inactividad, salidas AUX, DTMF, la bitácora de IRLP y el botón para apagar el viejo IRLPvCON.

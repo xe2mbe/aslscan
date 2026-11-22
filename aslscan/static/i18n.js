@@ -25,6 +25,9 @@
     jueves: "Thursday", viernes: "Friday", "sábado": "Saturday" };
 
   const D = {
+    // Bot de Telegram apagado (perfil, sin ser administrador)
+    "El bot de Telegram no está activo en este nodo. Pídele al administrador que lo active.":
+      "The Telegram bot isn't active on this node. Ask the administrator to turn it on.",
 
     // ── ASLSCAN ──
     "Tonos": "Tones", "Tonos de cortesía": "Courtesy tones",
@@ -468,7 +471,7 @@
     "Nadie transmitiendo": "Nobody transmitting", "Sin transmitir": "Not broadcasting",
     "Preparando audio": "Preparing audio", "Según status.irlp.net (se actualiza cada pocos minutos).": "From status.irlp.net (updated every few minutes).", "En pausa": "Paused", "Entre secciones": "Between sections", "Nodos en la red": "Nodes in the network",
     "alcanzables a través de los enlaces": "reachable through the links", "No hay nodos conectados.": "No nodes connected.",
-    "Hablando": "Talking", "Monitor": "Monitor", "↘ Entrante": "↘ Incoming", "↗ Saliente": "↗ Outgoing",
+    "Hablando": "Talking", "Grupo": "Group", "Monitor": "Monitor", "↘ Entrante": "↘ Incoming", "↗ Saliente": "↗ Outgoing",
     "En modo simulado no hay enlaces que mostrar.": "In simulated mode there are no links to show.", "Sin conexión": "Not connected",
     // Cron
     "+ Agregar tarea": "+ Add job", "Editar como texto": "Edit as text", "Editar tarea": "Edit job", "Nueva tarea de cron": "New cron job",
