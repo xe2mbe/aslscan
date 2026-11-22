@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASLSCAN</title>
+<link rel="icon" id="favicon" href="static/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="static/icon-180.png">
+<link rel="manifest" href="static/manifest.webmanifest">
+<meta name="theme-color" content="#0f1a33">
+<link rel="stylesheet" href="static/app.css?v=1.0.0">
+</head>
+<body>
+
+<!-- Login -->
+<section id="login" class="login hidden">
+  <form id="loginForm" class="login-card">
+    <img id="loginLogo" class="login-logo hidden" alt="">
+    <p id="loginStation" class="login-station hidden"></p>
+    <div class="brand big"><img class="brand-mark big" src="static/logo.svg" alt=""><span class="brand-txt"><span class="wm-row"><span class="wm big" role="img" aria-label="ASLSCAN" translate="no"></span></span><span class="wm-lema" translate="no"></span></span></div>
+    <p class="muted">El dashboard de tu nodo</p>
+    <label>Usuario<input id="loginUser" autocomplete="username" autocapitalize="off" spellcheck="false" required></label>
+    <label>Contraseña<input type="password" id="loginPw" autocomplete="current-password" required></label>
+    <button class="btn primary wide" type="submit">Entrar</button>
+    <p id="loginErr" class="err"></p>
+    <p class="login-ver" id="loginVer" translate="no"></p>
+    <div class="lang-pick" translate="no"><button type="button" data-lang="en">English</button><span>·</span><button type="button" data-lang="es">Español</button></div>
+  </form>
+</section>
+
+<!-- App -->
+<div id="app" class="hidden">
+  <header class="topbar" id="topbar">
+    <button class="btn icon ghost" id="btnMenu" title="Mostrar menú" aria-label="Mostrar menú" aria-controls="sideNav" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <div class="top-title"><img class="brand-mark" id="topDot" src="static/logo.svg" alt=""><b id="topStation">ASLSCAN</b></div>
+    <div class="top-mon" id="topMon" translate="no"><span title="CPU">CPU <b id="tmCpu">—</b></span><span class="tm-temp" title="Temp.">🌡 <b id="tmTemp">—</b></span></div>
+    <img id="topLogo" class="top-logo hidden" alt="">
+    <div class="top-clock" id="clockTop">--:--:--</div>
+  </header>
+  <div class="scrim" id="scrim"></div>
+  <aside class="side" id="sideNav">
+    <button class="btn icon ghost side-close" id="btnHideMenu" title="Esconder menú" aria-label="Esconder menú"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <div class="side-brand">
+      <div class="side-id">
+        <div class="brand"><img class="brand-mark lg" id="brandDot" src="static/logo.svg" alt=""><span class="brand-txt"><span class="wm" role="img" aria-label="ASLSCAN" translate="no"></span><span class="wm-row"><span class="ver" id="appVer" translate="no"></span></span></span></div>
+        <div class="node" id="nodeLabel"></div>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button data-tab="conexiones" class="active"><svg viewBox="0 0 24 24"><path d="M4 18a8 8 0 1 1 16 0"/><path d="m12 14 4-5"/><circle cx="12" cy="14" r="1.6"/><path d="M4 18h16"/></svg><span>Dashboard</span></button>
+      <button data-tab="nodos"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Nodos</span></button>
+      <button data-tab="ajustes"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span>Ajustes</span></button>
+    </nav>
+    <div class="side-mon" id="sideMon" translate="no">
+      <div class="mon-h"><span data-l="Equipo">Equipo</span><button type="button" class="mon-health hidden" id="monHealth"></button><span id="monUp"></span></div>
+      <div class="mon-row"><span data-l="CPU">CPU</span><div class="mbar"><div id="mbCpu"></div></div><b id="mvCpu">—</b></div>
+      <div class="mon-row"><span data-l="RAM">RAM</span><div class="mbar"><div id="mbMem"></div></div><b id="mvMem">—</b></div>
+      <div class="mon-row"><span data-l="Disco">Disco</span><div class="mbar"><div id="mbDisk"></div></div><b id="mvDisk">—</b></div>
+      <div class="mon-pair"><span><i data-l="Temp.">Temp.</i> <b id="mvTemp">—</b></span><span><i data-l="Carga">Carga</i> <b id="mvLoad">—</b></span></div>
+      <div class="mon-pair"><span title="Bajada">↓ <b id="mvRx">—</b></span><span title="Subida">↑ <b id="mvTx">—</b></span></div>
+    </div>
+    <div class="side-foot">
+      <img id="brandLogo" class="brand-logo hidden" alt="">
+      <div class="clock"><span id="clockLocal">--:--:--</span><small id="clockUtc">UTC --:--</small></div>
+      <button class="btn icon ghost" id="btnTheme" title="Tema claro / oscuro" aria-label="Cambiar tema"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"/></svg></button>
+    </div>
+    <div class="side-user" id="sideUser">
+      <button type="button" class="me-open" id="btnPerfil" title="Mi perfil"><span class="avatar" id="userAvatar">?</span>
+        <span class="who"><b id="userName"></b><small id="userRole"></small></span></button>
+      <button class="btn icon ghost" id="btnSideLogout" title="Cerrar sesión" aria-label="Cerrar sesión"><svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></svg></button>
+    </div>
+  </aside>
+
+  <main>
+    <section class="view hidden" id="view-nodos">
+      <div class="view-head">
+        <div><h1>Nodos</h1><p class="sub" id="nodosSub">Estado de los nodos que reportan a este hub</p></div>
+        <div class="row gap"><button class="btn ro" id="btnNodosReload">↻ Actualizar</button></div>
+      </div>
+      <div class="nodos-grid" id="nodosList"><p class="muted">Cargando…</p></div>
+      <p class="muted nodos-help" id="nodosHelp"></p>
+    </section>
+
+    <section class="view" id="view-conexiones">
+      <div class="view-head">
+        <div><h1>Dashboard</h1><p class="sub" id="sesSub">El nodo y sus conexiones en este momento</p></div>
+        <div class="row gap">
+          <select id="sesNodo" class="hidden" title="Nodo local"></select>
+          <button class="btn icon live-btn hidden" id="btnLive" title="Escuchar el nodo en vivo" aria-label="Escuchar el nodo en vivo"><span class="live-ico">🔊</span></button>
+          <button class="btn ro" id="btnSesReload">↻ Actualizar</button>
+        </div>
+      </div>
+      <div class="stats" id="sesStats"></div>
+      <div class="panel hidden" id="irlpCtl">
+        <div class="panel-head">
+          <h2>Control del nodo IRLP</h2>
+          <form id="irlpConnect" class="connect" autocomplete="off">
+            <input name="destino" placeholder="Nodo o reflector" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" required>
+            <button class="btn primary" type="submit">Conectar</button>
+            <button class="btn danger-soft hidden" type="button" id="irlpEnd">✖ Desconectar</button>
+          </form>
+        </div>
+        <div class="irlp-body">
+          <div class="irlp-favs" id="irlpFavs"></div>
+          <div class="irlp-row" id="irlpRow"></div>
+          <form id="irlpDtmf" class="connect irlp-dtmf" autocomplete="off">
+            <input name="codigo" placeholder="Código DTMF" maxlength="16" pattern="[0-9A-Da-d*#]{1,16}" required>
+            <button class="btn" type="submit">Enviar código</button>
+            <small class="muted">Se ejecuta como si llegara por el radio (p. ej. 73 desconecta).</small>
+          </form>
+        </div>
+        <details class="net" id="irlpLogWrap">
+          <summary><span>Bitácora de IRLP</span><small class="muted">Las últimas 100 líneas, la más nueva arriba</small></summary>
+          <div class="irlp-log"><button class="btn sm ro" type="button" id="irlpLogReload">↻ Actualizar</button><pre id="irlpLog"></pre></div>
+        </details>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Enlaces directos</h2>
+          <form id="sesConnect" class="connect" autocomplete="off">
+            <input name="destino" placeholder="Nodo" inputmode="numeric" pattern="[0-9]{3,7}" required>
+            <select name="modo"><option value="transceptor">Transceptor</option><option value="monitor">Solo monitor</option><option value="monitor_local">Monitor local</option></select>
+            <button class="btn primary" type="submit">Conectar</button>
+            <button class="btn danger-soft hidden" type="button" id="sesAll">⛔ Desconectar todos</button>
+          </form>
+        </div>
+        <div class="irlp-favs asl-favs hidden" id="aslFavs"></div>
+        <div id="sesList" class="links-list"><p class="empty">Cargando…</p></div>
+      </div>
+      <div class="panel hidden" id="aslBuscar">
+        <div class="panel-head">
+          <h2>Buscar nodos</h2>
+          <form id="busForm" class="connect" autocomplete="off">
+            <input type="search" name="q" id="busQ" placeholder="Indicativo, nodo o lugar (p. ej. XE2MBE, XE, 59624)" maxlength="40" spellcheck="false" autocapitalize="characters">
+          </form>
+        </div>
+        <p class="muted bus-help" id="busInfo">Busca en el directorio de AllStar: el indicativo o el número de nodo por cómo empiezan; con 3 letras o más también por descripción o lugar.</p>
+        <div id="busList" class="bus-list"></div>
+      </div>
+      <details class="panel net" id="sesRedWrap">
+        <summary><span id="sesRedTitle">Red completa</span><small class="muted">Nodos alcanzables a través de los enlaces</small></summary>
+        <div id="sesRed" class="node-chips"></div>
+      </details>
+    </section>
+
+    <!-- Ajustes -->
+    <section class="view hidden" id="view-ajustes">
+      <div class="view-head"><div><h1>Ajustes</h1><p class="sub">Nodo, usuarios, Telegram y respaldos</p></div></div>
+      <div class="settings">
+        <aside class="settings-nav" id="setNav">
+          <button data-set="nodo" class="active">Nodo</button>
+          <button data-set="usuarios">Usuarios</button>
+          <button data-set="telegram">Telegram</button>
+          <button data-set="respaldo">Respaldo</button>
+          <button data-set="sistema">Sistema</button>
+        </aside>
+        <form class="settings-body" id="setForm" autocomplete="off">
+
+          <fieldset data-set="nodo">
+            <legend>Nodo</legend>
+            <input type="hidden" name="backend">
+            <label>Número de nodo<input name="node" placeholder="58788"><small id="detectHint"></small></label>
+            <label>Nombre de la estación (opcional)<input name="station_name" placeholder="XE2MBE · Durango"></label>
+            <div class="logo-set">
+              <div class="logo-preview" id="logoPreview"><span class="muted">Sin logo</span></div>
+              <div>
+                <b>Logo de la estación</b><br>
+                <small class="muted">PNG, JPG, WEBP o GIF. Se reduce en tu navegador antes de subirlo. Aparece arriba, en la pantalla de entrada y en la pestaña del navegador.</small>
+                <div class="row gap" style="margin-top:8px">
+                  <label class="btn sm" style="margin:0">Subir logo<input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden></label>
+                  <button type="button" class="btn sm ghost hidden" id="btnLogoDel">Quitar</button>
+                </div>
+              </div>
+            </div>
+            <div class="row gap wrap">
+              <button type="button" class="btn" id="btnTestNode">Probar conexión con el nodo</button>
+              <span id="testNodeMsg" class="muted"></span>
+            </div>
+          </fieldset>
+
+          <fieldset data-set="telegram" class="hidden">
+            <legend>Telegram</legend>
+            <p class="muted" style="margin-top:0">Un bot de Telegram para ver y controlar las conexiones del nodo desde el celular, y para recibir avisos.</p>
+            <label class="check"><input type="checkbox" name="tg_enabled"> Usar Telegram</label>
+            <details class="tl" style="margin:4px 0 14px"><summary>Cómo crear el bot (2 minutos)</summary>
+              <ol style="margin:8px 0 0;padding-left:20px;font-size:.88rem;line-height:1.6">
+                <li>En Telegram, abre <b>@BotFather</b> y envíale <code>/newbot</code>. Ponle un nombre (p. ej. «ASLSCAN Nodo 58788»).</li>
+                <li>BotFather te da un <b>token</b> (algo como <code>123456:ABC-…</code>): pégalo abajo.</li>
+                <li>Escríbele cualquier cosa a tu bot (o agrégalo a un grupo y escribe ahí) y presiona <b>Buscar mi chat</b>.</li>
+                <li>Guarda los ajustes y presiona <b>Enviar prueba</b>.</li>
+              </ol></details>
+            <label>Token del bot<input name="tg_token" type="password" autocomplete="off" translate="no">
+              <small>Si HAMNA Web también está en este nodo, usa <b>otro bot</b>: Telegram no deja que dos programas lean los mensajes del mismo bot.</small></label>
+            <label>Chat que recibe los avisos
+              <div class="row gap"><input name="tg_chat" placeholder="ID del chat o del grupo" translate="no"><button type="button" class="btn sm" id="btnTgChats">Buscar mi chat</button></div>
+              <small id="tgChatsMsg"></small>
+            </label>
+            <div id="tgChats" class="slist hidden" style="margin-bottom:14px"></div>
+            <h3>Bot</h3>
+            <label class="check"><input type="checkbox" name="tg_bot_on"> 🤖 El bot responde: 📋 Menú con 🔗 Conexiones (ver, conectar con tus favoritos o por número, cambiar el modo, desconectar), 🩺 Salud y 🗺 Nodos.</label>
+            <p class="muted bot-st" id="botSt"></p>
+            <div id="botUsers"></div>
+            <p class="muted bot-help">Cada usuario vincula su Telegram en Mi perfil (clic en su foto o nombre). Conectar y desconectar solo lo pueden hacer los operadores y el administrador.</p>
+            <h3>Avisos</h3>
+            <label class="check"><input type="checkbox" name="tg_on_health"> 🩺 Salud del nodo: errores de la tarjeta SD, escritura lenta, bajo voltaje, temperatura alta, poco disco (y cuando se normaliza)</label>
+            <label class="check"><input type="checkbox" name="tg_on_backup"> 💾 Si falla el respaldo automático</label>
+            <label class="check"><input type="checkbox" name="tg_on_nodes"> 🗺 Un nodo dejó de reportar al panel de nodos (y cuando vuelve)</label>
+            <h3>Probar</h3>
+            <div class="row gap wrap"><button type="button" class="btn" id="btnTgTest">Enviar prueba</button><span id="tgTestMsg" class="muted"></span></div>
+          </fieldset>
+
+          <fieldset data-set="usuarios" class="hidden">
+            <legend>Usuarios</legend>
+            <div class="row gap wrap" style="justify-content:space-between;margin-bottom:14px">
+              <p class="muted" style="margin:0;max-width:640px"><b>Administrador</b>: todo (usuarios, favoritos, ajustes y respaldos). <b>Operador</b>: conectar y desconectar nodos. <b>Solo lectura</b>: ver el Dashboard y los nodos, y escuchar en vivo.</p>
+              <button type="button" class="btn primary" id="btnUserNew">+ Nuevo usuario</button>
+            </div>
+            <div id="userList" class="ulist"><p class="muted">Cargando…</p></div>
+            <div id="lockBox" class="hidden"></div>
+            <h3>Sesiones abiertas</h3>
+            <div id="allSessions" class="slist"></div>
+          </fieldset>
+
+          <fieldset data-set="respaldo" class="hidden">
+            <legend>Respaldo</legend>
+            <div class="subtabs" id="bkTabs">
+              <button type="button" data-sub="auto" class="active">⏰ Automático</button>
+              <button type="button" data-sub="manual">💾 Descargar y restaurar</button>
+              <button type="button" data-sub="recibir">📥 Recibir de otros nodos</button>
+            </div>
+
+            <!-- Automático -->
+            <div class="subpane" data-sub="auto">
+              <p class="muted bk-intro">Cada día ASLSCAN arma un respaldo (usuarios, favoritos y ajustes) y lo manda fuera de este nodo, para que no se pierda nada si se daña la tarjeta SD.</p>
+
+              <div class="bk-card">
+                <div class="bk-head"><h4>Último respaldo</h4>
+                  <div class="row gap wrap">
+                    <button type="button" class="btn sm" id="btnAbNow">Respaldar ahora</button>
+                  </div></div>
+                <div id="abStatus"></div>
+              </div>
+
+              <div class="bk-card">
+                <h4>1. Cuándo</h4>
+                <div class="grid2">
+                  <label class="check"><input type="checkbox" name="ab_enabled"> Hacer un respaldo automático cada día</label>
+                  <label>Hora del respaldo<input type="time" name="ab_hora"></label>
+                </div>
+              </div>
+
+              <h4 class="bk-sub">2. Adónde se manda <span class="muted">(uno o varios)</span></h4>
+              <div class="grid2 bk-dest">
+                <div class="bk-card">
+                  <label class="check bk-title"><input type="checkbox" name="ab_node_on"> 🖥️ A otro nodo (ASLSCAN o HAMNA Web)</label>
+                  <p class="muted bk-note">Por ejemplo el hub. En ese nodo: Respaldo → Recibir de otros nodos → Nuevo código.</p>
+                  <label>Dirección del nodo destino<input name="ab_node_url" placeholder="https://192.168.1.4/aslscan/" autocomplete="off"></label>
+                  <label>Código de acceso<input type="password" name="ab_node_token" data-secret autocomplete="new-password"></label>
+                  <input type="hidden" name="ab_node_pin">
+                  <div class="row gap wrap"><button type="button" class="btn sm" id="btnAbProbe">Probar conexión</button><span class="muted" id="abProbeMsg"></span></div>
+                </div>
+                <div class="bk-card">
+                  <label class="check bk-title"><input type="checkbox" name="ab_cloud_on"> ☁️ A Google Drive u OneDrive</label>
+                  <div id="abCloud"></div>
+                  <label>Carpeta en la nube<input name="ab_cloud_folder" placeholder="ASLSCAN"><small>Dentro de ella se crea una carpeta con el número de este nodo.</small></label>
+                  <label>Respaldos a conservar en la nube<input type="number" name="ab_keep" min="1" max="60"></label>
+                </div>
+                <div class="bk-card">
+                  <label class="check bk-title"><input type="checkbox" name="ab_tg_on"> 📲 Por Telegram a los administradores</label>
+                  <p class="muted bk-note">Cada día te llega el respaldo (pesa poco) en tu chat privado con el bot. Nunca va al grupo de avisos: lleva claves y contraseñas cifradas.</p>
+                  <div id="abTg" class="muted bk-note"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Descargar y restaurar -->
+            <div class="subpane hidden" data-sub="manual">
+              <div class="grid2 bk-dest">
+                <div class="bk-card">
+                  <h4>⬇ Descargar respaldo</h4>
+                  <p class="muted bk-note">Guarda en tu computadora los usuarios, los favoritos, los ajustes (incluido el token de Telegram), el logo y las fotos. Sirve para cambiar la tarjeta SD o pasar todo a otro nodo.</p>
+                  <div class="muted" id="bkSize" style="font-size:.84rem;margin:4px 0 12px"></div>
+                  <div class="row gap wrap"><a class="btn primary" id="btnBackup" href="api/respaldo/descargar">⬇ Descargar respaldo</a></div>
+                  <p class="muted" style="font-size:.84rem">⚠️ El archivo contiene contraseñas (cifradas) y claves; guárdalo en un lugar seguro y no lo compartas.</p>
+                </div>
+                <div class="bk-card">
+                  <h4>⬆ Restaurar desde un respaldo</h4>
+                  <p class="muted bk-note">Reemplaza los datos de este nodo con los del respaldo. Lo que hay ahora no se borra: se mueve a <code translate="no">/var/lib/aslscan/antes-de-restaurar-…</code> (se guardan las 2 más recientes). Los usuarios y contraseñas pasan a ser los del respaldo.</p>
+                  <label>Archivo de respaldo<input type="file" id="bkFile" accept=".gz,.tgz,application/gzip"></label>
+                  <label class="check"><input type="checkbox" id="bkKeepNode" checked> Conservar los datos de este nodo (número, nombre de la estación y logo)<small>Desmárcalo solo si restauras el mismo nodo (por ejemplo, después de cambiar la tarjeta SD).</small></label>
+                  <div class="row gap wrap"><button type="button" class="btn danger" id="btnRestore">Restaurar</button><span class="muted" id="bkMsg"></span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recibir de otros nodos -->
+            <div class="subpane hidden" data-sub="recibir">
+              <p class="muted bk-intro">Este nodo puede guardar los respaldos automáticos de tus otros nodos. Crea un código para cada nodo y pégalo en su sección «Respaldo automático», junto con la dirección de este nodo.</p>
+              <div class="bk-card">
+                <label style="max-width:360px">Respaldos a conservar por nodo<input type="number" name="ab_recv_keep" min="1" max="60"></label>
+                <div id="recvBox"><p class="muted">Cargando…</p></div>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset data-set="sistema" class="hidden">
+            <legend>Sistema</legend>
+            <div id="updBox" class="upd-box"><p class="muted">Buscando actualizaciones…</p></div>
+            <div id="healthBox" class="upd-box"></div>
+            <div id="liveBox" class="upd-box"></div>
+            <div id="vconBox" class="upd-box hidden"></div>
+            <div id="sysInfo" class="sysinfo">Cargando…</div>
+            <h3>Panel de nodos</h3>
+            <label class="check"><input type="checkbox" name="hub_on"> 🗺 Reportar el estado de este nodo a un hub cada minuto (salud, equipo, versión, respaldo)</label>
+            <div class="grid2">
+              <label>Dirección del hub<input name="hub_url" placeholder="Vacío = la del respaldo a otro nodo" autocomplete="off"></label>
+              <label>Código de acceso<input type="password" name="hub_token" data-secret autocomplete="new-password" placeholder="Vacío = el del respaldo"></label>
+            </div>
+            <input type="hidden" name="hub_pin">
+            <div class="row gap wrap"><button type="button" class="btn sm" id="btnHubProbe">Probar conexión</button><span class="muted" id="hubMsg"></span></div>
+            <p class="muted bk-note">El código se crea en el hub (ASLSCAN o HAMNA Web): Ajustes → Respaldo → Recibir de otros nodos (el mismo código sirve para el respaldo y para el panel).</p>
+            <label class="tg-sub">Si este nodo es el hub: avisar si un nodo deja de reportar por (minutos)<input type="number" name="hub_alerta_min" min="0" max="1440" placeholder="10"><small>0 = no avisar. El aviso llega por Telegram.</small></label>
+          </fieldset>
+
+          <div class="settings-save" id="saveBar">
+            <button class="btn primary" type="submit">Guardar ajustes</button>
+            <span id="saveMsg" class="muted"></span>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+</div>
+
+<!-- Modal genérico -->
+<!-- Mi perfil (todos los usuarios) -->
+<div class="modal hidden" id="perfil" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <header><h2>Mi perfil</h2><button class="btn icon ghost" id="perfilClose" aria-label="Cerrar">✕</button></header>
+    <div class="perfil-body">
+      <div class="me-card"><span class="avatar xl" id="meAvatar">?</span>
+        <div><b id="meName"></b><small class="muted" id="meRole"></small>
+          <div class="row gap wrap" style="margin-top:8px">
+            <label class="btn sm">📷 Cambiar foto<input type="file" id="meFoto" accept="image/*" hidden></label>
+            <button type="button" class="btn sm danger-soft hidden" id="btnFotoDel">Quitar foto</button></div></div></div>
+      <label>Mi nombre
+        <div class="row gap"><input id="meNombre" maxlength="60" placeholder="Pedro · XE2ABC" style="flex:1"><button type="button" class="btn" id="btnMeNombre">Guardar nombre</button></div>
+        <small>Así te ven los demás usuarios y así apareces en los avisos. Para entrar sigues usando tu usuario.</small></label>
+      <label>Idioma
+        <select id="meLang" translate="no"><option value="en">English</option><option value="es">Español</option></select>
+      </label>
+      <h3>Cambiar contraseña</h3>
+      <div class="grid2">
+        <label>Contraseña actual<input type="password" id="pwOld" autocomplete="current-password"></label>
+        <label>Contraseña nueva<input type="password" id="pwNew" autocomplete="new-password" minlength="8"><small>Al menos 8 caracteres. Al cambiarla se cierran tus otras sesiones.</small></label>
+      </div>
+      <div class="row gap"><button type="button" class="btn primary" id="btnPw">Cambiar contraseña</button></div>
+      <h3>Telegram</h3>
+      <div id="meTg" class="tg-box"><p class="muted">Cargando…</p></div>
+      <h3>Mis sesiones abiertas</h3>
+      <p class="muted ses-note">Cada equipo o navegador donde entras es una sesión. Se cierra sola si no la usas en 30 días (y a los 90 días como máximo). Si no reconoces una, ciérrala con su botón.</p>
+      <div id="mySessions" class="slist"><p class="muted">Cargando…</p></div>
+      <div class="row gap wrap" style="margin-top:12px">
+        <button type="button" class="btn hidden" id="btnCloseOthers">Cerrar las demás sesiones</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal hidden" id="modal" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <header><h2 id="modalTitle"></h2><button class="btn icon ghost" id="modalClose" aria-label="Cerrar">✕</button></header>
+    <div id="modalBody"></div>
+  </div>
+</div>
+<div class="toast hidden" id="toast"></div>
+
+<script src="static/i18n.js?v=1.0.0"></script>
+<script src="static/app.js?v=1.0.0"></script>
+</body>
+</html>

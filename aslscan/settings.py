@@ -1,0 +1,112 @@
+"""Ajustes en JSON (settings.json en la carpeta de datos)."""
+import json
+import os
+import threading
+
+from . import paths
+
+DEFAULTS = {
+    # Nodo
+    "backend": "auto",          # auto | asl | irlp | simulado
+    "node": "",                 # número de nodo ASL o stationid IRLP
+    "irlp_env": "/home/irlp/custom/environment",
+    "station_name": "",
+    "logo_file": "",            # logo de la estación (en la carpeta de datos)
+
+    # Telegram (bot para conectar nodos y avisos)
+    "tg_enabled": False,
+    "tg_token": "",
+    "tg_chat": "",
+    "tg_bot_on": True,
+    "tg_on_backup": True,
+    "tg_on_health": True,
+    "tg_on_nodes": True,
+    "ab_tg_on": False,
+
+    # Panel de nodos (hub.py)
+    "hub_on": False,              # mandar el estado de este nodo a un hub cada minuto
+    "hub_url": "",                # vacíos: se usan la dirección y el código del respaldo a otro nodo
+    "hub_token": "",
+    "hub_pin": "",
+    "hub_alerta_min": 10,         # en el hub: avisar si un nodo deja de reportar (0 = no avisar)
+
+    # Respaldo automático (ver autobackup.py)
+    "ab_enabled": False,
+    "ab_hora": "03:30",
+    "ab_keep": 7,                 # respaldos que se guardan en la nube
+    "ab_node_on": False,
+    "ab_node_url": "",
+    "ab_node_token": "",
+    "ab_node_pin": "",            # huella del certificado del nodo destino
+    "ab_cloud_on": False,
+    "ab_cloud_folder": "ASLSCAN",
+    "ab_recv_keep": 7,            # al recibir: respaldos por nodo
+
+    # Seguridad
+    "password_hash": "",
+    "secret_key": "",
+}
+
+# Claves que nunca se mandan al navegador
+SECRET_KEYS = {"password_hash", "secret_key", "tg_token", "ab_node_token", "hub_token"}
+
+_lock = threading.Lock()
+_cache = None
+_mtime = None
+
+
+def _file_mtime():
+    try:
+        return paths.settings_file().stat().st_mtime
+    except OSError:
+        return None
+
+
+def load():
+    """Ajustes en memoria; se releen si otro proceso cambió el archivo
+    (por ejemplo aslscan-passwd)."""
+    global _cache, _mtime
+    with _lock:
+        mt = _file_mtime()
+        if _cache is None or mt != _mtime:
+            _mtime = mt
+            data = {}
+            f = paths.settings_file()
+            if f.is_file():
+                try:
+                    data = json.loads(f.read_text(encoding="utf-8"))
+                except Exception:
+                    data = {}
+            _cache = {**DEFAULTS, **data}
+        return dict(_cache)
+
+
+def get(key, default=None):
+    return load().get(key, DEFAULTS.get(key, default))
+
+
+def save(updates):
+    global _cache, _mtime
+    cfg = load()
+    cfg.update(updates)
+    with _lock:
+        f = paths.settings_file()
+        tmp = f.with_suffix(".tmp")
+        tmp.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+        os.replace(str(tmp), str(f))
+        try:
+            os.chmod(str(f), 0o600)
+        except OSError:
+            pass
+        _cache = cfg
+        _mtime = _file_mtime()
+    return dict(cfg)
+
+
+def public():
+    cfg = load()
+    out = {k: v for k, v in cfg.items() if k not in SECRET_KEYS}
+    out["tg_token_set"] = bool(cfg.get("tg_token"))
+    out["ab_node_token_set"] = bool(cfg.get("ab_node_token"))
+    out["hub_token_set"] = bool(cfg.get("hub_token"))
+    return out

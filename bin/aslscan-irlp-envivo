@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# ASLSCAN — escuchar en vivo un nodo IRLP.
+#
+#   aslscan-irlp-envivo on       agrega el bloque de ASLSCAN en /home/irlp/.asoundrc
+#   aslscan-irlp-envivo off      lo quita (deja el resto del archivo como estaba)
+#   aslscan-irlp-envivo status   dice "on" u "off"
+#
+# Puede correrlo root o el usuario repeater. IRLP (ispeaker, imike, play) sigue
+# usando la misma tarjeta; ASLSCAN solo escucha:
+#   · lo que IRLP reproduce (reflector, mensajes) pasa por un derivador de
+#     ALSA hacia bin/aslscan-live-irlp;
+#   · lo que entra del radio lo lee ASLSCAN con arecord (dsnoop, compartido).
+# Si HAMNA Web ya puso su propio bloque, ese mismo derivador le manda el audio
+# a ASLSCAN y no se agrega otro (solo puede haber un pcm.!default).
+# Los programas de IRLP toman el cambio la próxima vez que abren el audio.
+set -eu
+F=${ASLSCAN_ASOUNDRC:-/home/irlp/.asoundrc}
+BEGIN="# >>> ASLSCAN: escuchar en vivo (no edites este bloque; quítalo con aslscan-irlp-envivo off) >>>"
+END="# <<< ASLSCAN <<<"
+TAP=${ASLSCAN_TAP:-/opt/aslscan/bin/aslscan-live-irlp}   # ASLSCAN_TAP solo para pruebas
+
+has_block() { [ -f "$F" ] && grep -qF ">>> ASLSCAN: escuchar en vivo" "$F"; }
+has_hamna() { [ -f "$F" ] && grep -qF ">>> HAMNA Web: escuchar en vivo" "$F"; }
+
+fix_owner() { [ "$(id -u)" = 0 ] && id repeater >/dev/null 2>&1 && chown repeater:repeater "$F" || true; }
+
+case "${1:-status}" in
+  on)
+    if has_block; then echo "Ya estaba activado ($F)"; exit 0; fi
+    if has_hamna; then echo "Ya activado por HAMNA Web ($F): ASLSCAN usa el mismo audio"; exit 0; fi
+    if [ -f "$F" ] && grep -Eq '^[[:space:]]*pcm\.!?default' "$F"; then
+      echo "$F ya define su propio pcm.default; no lo toco." >&2
+      echo "Revísalo a mano o quita esa definición y vuelve a intentar." >&2
+      exit 2
+    fi
+    [ -f "$F" ] && cp -p "$F" "$F.antes-de-aslscan"
+    {
+      [ -s "$F" ] && echo
+      echo "$BEGIN"
+      cat <<EOF
+pcm.!default {
+	type asym
+	playback.pcm "aslscan_envivo"
+	capture.pcm "plug:dsnoop"
+}
+pcm.aslscan_envivo {
+	type plug
+	slave { pcm "aslscan_envivo_f" format S16_LE channels 1 }
+}
+pcm.aslscan_envivo_f {
+	type file
+	slave.pcm "plug:dmix"
+	file "|$TAP 2>/dev/null || cat >/dev/null"
+	format wav
+}
+EOF
+      echo "$END"
+    } >> "$F"
+    fix_owner
+    echo "Activado: ASLSCAN puede escuchar el nodo ($F)"
+    ;;
+  off)
+    if ! has_block; then
+      if has_hamna; then echo "Lo activó HAMNA Web: se apaga desde HAMNA" >&2; exit 2; fi
+      echo "No estaba activado"; exit 0
+    fi
+    sed -i '/^# >>> ASLSCAN: escuchar en vivo/,/^# <<< ASLSCAN <<</d' "$F"
+    if ! grep -q '[^[:space:]]' "$F"; then rm -f "$F"; else fix_owner; fi
+    echo "Desactivado: se quitó el bloque de ASLSCAN de $F"
+    ;;
+  status)
+    if has_block || has_hamna; then echo on; else echo off; fi
+    ;;
+  *)
+    echo "Uso: $0 on|off|status" >&2; exit 1 ;;
+esac

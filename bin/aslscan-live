@@ -1,0 +1,52 @@
+#!/usr/bin/python3 -I
+"""
+ASLSCAN — audio en vivo del nodo.
+
+Lo arranca app_rpt con esta línea en la sección del nodo de rpt.conf:
+
+    outstreamcmd = /opt/aslscan/bin/aslscan-live
+
+app_rpt le pasa por la entrada el audio del nodo (8 kHz, 16 bits, mono) y
+este programa lo reenvía en paquetes UDP a ASLSCAN (127.0.0.1:8096) y a
+HAMNA Web (127.0.0.1:8091): rpt.conf admite un solo outstreamcmd, así que
+el mismo programa sirve a los dos. Si ninguno está corriendo, los paquetes
+simplemente se pierden: nunca detiene a Asterisk.
+"""
+import os
+import select
+import socket
+import sys
+
+PORTS = [int(x) for x in sys.argv[1:] if x.isdigit()] or [8096, 8091]
+CHUNK = 1600                     # 100 ms de audio
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+buf = b""
+
+
+def send(data):
+    for port in PORTS:
+        try:
+            sock.sendto(data, ("127.0.0.1", port))
+        except OSError:
+            pass
+
+
+while True:
+    r, _, _ = select.select([0], [], [], 0.25)
+    if not r:
+        if len(buf) >= 2:        # el audio paró: mandar lo que quedó
+            n = len(buf) - len(buf) % 2
+            send(buf[:n])
+            buf = buf[n:]
+        continue
+    try:
+        data = os.read(0, 4096)
+    except InterruptedError:
+        continue
+    if not data:
+        break                    # app_rpt cerró la tubería
+    buf += data
+    while len(buf) >= CHUNK:
+        send(buf[:CHUNK])
+        buf = buf[CHUNK:]
