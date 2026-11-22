@@ -949,6 +949,8 @@ body.rol-lectura .fav-tab { pointer-events: auto; }
 .ct-segh span { font-size: .7rem; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; }
 .ct-res { font-size: .78rem; }
 .ct-enl { border-left: 3px solid var(--accent); }
+.ct-ms { display: flex; align-items: center; gap: 6px; margin: 0; font-size: .85rem; }
+.ct-ms input { margin: 0; width: 110px; }
 .ct-desc { display: block; font-size: .76rem; margin-top: 2px; }
 .ct-copia { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px; font-size: .82rem; }
 .ct-copia select { margin: 0; flex: 1; min-width: 0; }

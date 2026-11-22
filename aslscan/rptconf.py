@@ -8,7 +8,10 @@ Lee y cambia solo esto:
     PTT cuando el nodo ESTÁ ENLAZADO (en transceptor / solo en monitor). Con
     enlaces app_rpt usa estos y no unlinkedct;
   · cuál ctN usa el nodo: unlinkedct (sin enlaces), linkunkeyct (al soltar
-    alguien que llega por un enlace) y remotect (base remota enlazada).
+    alguien que llega por un enlace) y remotect (base remota enlazada);
+  · dos tiempos: unkeywait (pausa entre que sueltas el PTT y el tono, en la
+    sección de `wait_times =` del nodo) y hangtime (cuánto se queda arriba el
+    transmisor después, en la sección del nodo).
 
 Cada cambio guarda antes una copia de rpt.conf (rpt.conf.aslscan-FECHA, se
 conservan las últimas 10) y cambia solo esos renglones, respetando los
@@ -34,6 +37,8 @@ RPT_CONF = "/etc/asterisk/rpt.conf"
 GUARDAR = 10
 USOS = ("unlinkedct", "linkunkeyct", "remotect")
 ENLACE = ("remotetx", "remotemon")      # tonos directos (no ctN) de la sección de telemetría
+# (clave, dónde va, mínimo, máximo) — ms
+TIEMPOS = {"unkeywait": ("espera", 0, 5000), "hangtime": ("nodo", 0, 10000)}
 CT_RX = re.compile(r"^ct(\d{1,2})$")
 SEG_RX = re.compile(r"\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)")
 MAX_SEG = 12
@@ -165,8 +170,21 @@ def estado(cfg):
     for k in USOS:
         v, donde = _valor(secs, nodo, k)
         uso[k] = {"valor": (v or "").strip(), "propio": donde == nodo}
-    return dict(base, disponible=True, nodo=nodo, seccion_telemetria=tel, tonos=lista, uso=uso,
-                pendiente=pendiente(), puede_aplicar=bool(_comando_reinicio()))
+    esp, _ = _valor(secs, nodo, "wait_times")
+    esp = (esp or "").strip()
+    tiempos = {}
+    for k, (donde, lo, hi) in TIEMPOS.items():
+        sec = nodo if donde == "nodo" else esp
+        if sec not in secs:
+            continue
+        v, de = _valor(secs, sec, k)
+        try:
+            v = int(float((v or "").strip()))
+        except ValueError:
+            v = None
+        tiempos[k] = {"valor": v, "propio": de == sec, "min": lo, "max": hi}
+    return dict(base, disponible=True, nodo=nodo, seccion_telemetria=tel, seccion_espera=esp if esp in secs else "",
+                tonos=lista, uso=uso, tiempos=tiempos, pendiente=pendiente(), puede_aplicar=bool(_comando_reinicio()))
 
 
 # ── Escribir ─────────────────────────────────────────────────────────────────
@@ -219,7 +237,7 @@ def _respaldar():
     return dest
 
 
-def guardar(cfg, tonos, uso, borrar=None):
+def guardar(cfg, tonos, uso, borrar=None, tiempos=None):
     """tonos: {ctN: [[f1,f2,ms,amp],…]}; uso: {unlinkedct: "ctN"|""}; borrar: [ctN] propios a quitar."""
     st = estado(cfg)
     if not st["disponible"]:
@@ -244,6 +262,19 @@ def guardar(cfg, tonos, uso, borrar=None):
         if v and v not in disponibles:
             raise ValueError("El tono {} no existe".format(v))
         cambios_uso[k] = v
+    cambios_t = {}
+    for k, v in (tiempos or {}).items():
+        if k not in TIEMPOS or k not in st["tiempos"]:
+            continue
+        _d, lo, hi = TIEMPOS[k]
+        try:
+            v = int(float(v))
+        except (TypeError, ValueError):
+            raise ValueError("Valor inválido en {}".format(k))
+        if not lo <= v <= hi:
+            raise ValueError("{} va de {} a {} ms".format(k, lo, hi))
+        if v != st["tiempos"][k]["valor"]:
+            cambios_t[k] = v
     for q in quitar:
         t = next((x for x in st["tonos"] if x["nombre"] == q), None)
         if not t or not t["propio"]:
@@ -262,6 +293,8 @@ def guardar(cfg, tonos, uso, borrar=None):
             poner(lineas, tel, q, None)
         for k, v in cambios_uso.items():
             poner(lineas, nodo, k, v or None)
+        for k, v in cambios_t.items():
+            poner(lineas, nodo if TIEMPOS[k][0] == "nodo" else st["seccion_espera"], k, str(v))
         texto = eol.join(lineas) + (eol if original.endswith(("\n", "\r")) else "")
         if texto == original:
             return estado(cfg)
@@ -279,7 +312,8 @@ def guardar(cfg, tonos, uso, borrar=None):
         os.replace(tmp, RPT_CONF)
     log.info("Tonos guardados en rpt.conf (copia anterior: %s): %s%s%s", os.path.basename(copia),
              ", ".join(sorted(nuevos)) or "-", "; quitados " + ", ".join(quitar) if quitar else "",
-             "; uso " + ", ".join("{}={}".format(k, v or "ninguno") for k, v in cambios_uso.items()) if cambios_uso else "")
+             ("; uso " + ", ".join("{}={}".format(k, v or "ninguno") for k, v in cambios_uso.items()) if cambios_uso else "") +
+             ("; tiempos " + ", ".join("{}={}".format(k, v) for k, v in cambios_t.items()) if cambios_t else ""))
     return estado(cfg)
 
 

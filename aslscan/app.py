@@ -503,7 +503,8 @@ def tonos(req):
 def tonos_guardar(req):
     from . import rptconf
     b = req.json()
-    st = rptconf.guardar(settings.load(), b.get("tonos") or {}, b.get("uso") or {}, b.get("borrar") or [])
+    st = rptconf.guardar(settings.load(), b.get("tonos") or {}, b.get("uso") or {}, b.get("borrar") or [],
+                         b.get("tiempos") or {})
     log.info("%s cambió los tonos de cortesía en rpt.conf", req.user["usuario"])
     return ok(**st)
 

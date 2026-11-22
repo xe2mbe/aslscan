@@ -1902,6 +1902,8 @@ async function loadTonos() {
   S.tonosEd = { tonos: {}, uso: {}, borrar: [] };
   for (const t of st.tonos || []) S.tonosEd.tonos[t.nombre] = t.segmentos ? t.segmentos.map((x) => x.slice()) : null;
   for (const [k] of USOS_CT) S.tonosEd.uso[k] = ((st.uso || {})[k] || {}).valor || "";
+  S.tonosEd.tiempos = {};
+  for (const [k, v] of Object.entries(st.tiempos || {})) S.tonosEd.tiempos[k] = v.valor;
   S.tonosSucio = new Set();
   renderTonos();
   if (st.aplicando && st.aplicando.estado === "aplicando") setTimeout(() => { if (S.setSec === "tonos") loadTonos(); }, 3000);
@@ -1912,7 +1914,12 @@ function renderTonos() {
   const nombres = Object.keys(ed.tonos).filter((n) => !ed.borrar.includes(n) && !ENLACE_CT[n]).sort((a, b) => ctNum(a) - ctNum(b));
   const enlaceN = Object.keys(ENLACE_CT).filter((n) => ed.tonos[n] !== undefined);
   const ap = st.aplicando || {};
-  const sucio = S.tonosSucio.size || USOS_CT.some(([k]) => ed.uso[k] !== (((st.uso || {})[k] || {}).valor || "")) || ed.borrar.length;
+  const sucio = S.tonosSucio.size || USOS_CT.some(([k]) => ed.uso[k] !== (((st.uso || {})[k] || {}).valor || "")) || ed.borrar.length
+    || Object.keys(ed.tiempos || {}).some((k) => ed.tiempos[k] !== st.tiempos[k].valor);
+  const TIEMPO_TXT = {
+    unkeywait: [LG("Pausa antes del tono", "Pause before the tone"), LG("Desde que sueltas el PTT hasta que el nodo transmite el tono. Si tu radio no alcanza a pasar a recibir, súbela (HamVOIP traía 800 ms).", "From when you release the PTT until the node transmits the tone. If your radio can't switch back to receive in time, raise it (HamVOIP used 800 ms).")],
+    hangtime: [LG("Cola después del tono", "Hang time after the tone"), LG("Cuánto se queda transmitiendo el nodo después del tono.", "How long the node keeps transmitting after the tone.")] };
+  const tiempos = Object.keys(st.tiempos || {}).filter((k) => TIEMPO_TXT[k]);
   let aviso = "";
   if (ap.estado === "aplicando") aviso = `<div class="upd-box new"><b>⏳ ${esc(ap.mensaje)}</b><div class="muted" style="font-size:.84rem">${LG("Los enlaces se cortan unos segundos y se reconectan solos.", "Links drop for a few seconds and reconnect by themselves.")}</div></div>`;
   else if (st.pendiente) aviso = `<div class="upd-box new"><div class="upd-head"><div><b>⚠ ${LG("Hay cambios guardados en rpt.conf que todavía no se aplican", "There are saved changes in rpt.conf not applied yet")}</b>
@@ -1941,6 +1948,8 @@ function renderTonos() {
       </div>`;
   };
   box.innerHTML = aviso + `
+    ${tiempos.length ? `<div class="bk-card"><h4>${LG("Tiempos", "Timing")}</h4>${tiempos.map((k) => `<div class="ct-uso"><div><b>${esc(TIEMPO_TXT[k][0])}</b> <code>${k}</code><small class="muted">${esc(TIEMPO_TXT[k][1])}</small></div>
+        <label class="ct-ms"><input type="number" inputmode="numeric" data-cttiempo="${k}" value="${ed.tiempos[k] == null ? "" : ed.tiempos[k]}" min="${st.tiempos[k].min}" max="${st.tiempos[k].max}" step="50"> ms</label><span></span></div>`).join("")}</div>` : ""}
     ${enlaceN.length ? `<h4 class="bk-sub">${LG("Cuando el nodo está enlazado", "When the node is linked")}</h4>
       <p class="muted ct-ayuda">${LG("Mientras el nodo tenga algún enlace (por ejemplo, el enlace permanente con el hub), al soltar el PTT suena uno de estos dos y no el de «Sin enlaces».", "While the node has any link (for example the permanent link to the hub), one of these two plays when the PTT is released, not the «Not linked» one.")}</p>
       <div class="ct-lista">${enlaceN.map(tarjeta).join("")}</div>` : ""}
@@ -1990,7 +1999,7 @@ document.addEventListener("click", async (e) => {
     for (const nn of S.tonosSucio) if (ed.tonos[nn]) tonos[nn] = ed.tonos[nn];
     busy(b, true, LG("Guardando…", "Saving…"));
     try {
-      await api("api/tonos", { method: "PUT", json: { tonos, uso: ed.uso, borrar: ed.borrar } });
+      await api("api/tonos", { method: "PUT", json: { tonos, uso: ed.uso, borrar: ed.borrar, tiempos: ed.tiempos } });
       toast(LG("Guardado en rpt.conf", "Saved to rpt.conf")); loadTonos();
     } catch (err) { toast(err.message, true); busy(b, false); }
     return;
@@ -2006,6 +2015,11 @@ document.addEventListener("change", (e) => {
   if (!e.target.closest("#tonosBox")) return;
   const ed = S.tonosEd, t = e.target;
   if (t.dataset.ctuso) { ed.uso[t.dataset.ctuso] = t.value; return renderTonos(); }
+  if (t.dataset.cttiempo) {
+    const r = S.tonosSt.tiempos[t.dataset.cttiempo];
+    ed.tiempos[t.dataset.cttiempo] = Math.max(r.min, Math.min(r.max, Math.round(+t.value || 0)));
+    return renderTonos();
+  }
   if (t.dataset.ctcopia) {
     if (!t.value || !ed.tonos[t.value]) return;
     ed.tonos[t.dataset.ctcopia] = ed.tonos[t.value].map((x) => x.slice());
