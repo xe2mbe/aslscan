@@ -339,7 +339,12 @@ def pendiente():
 
 
 def _comando_reinicio():
-    if os.path.exists("/usr/local/sbin/astres.sh"):          # HamVOIP (el servicio corre como root)
+    servicio = any(os.path.exists(p) for p in ("/etc/systemd/system/asterisk.service",
+                                                 "/lib/systemd/system/asterisk.service",
+                                                 "/usr/lib/systemd/system/asterisk.service"))
+    # HamVOIP: Asterisk no es servicio de systemd y se reinicia con astres.sh (el programa corre como root).
+    # Un ASL3 migrado puede conservar un astres.sh viejo: ahí manda el servicio.
+    if not servicio and os.path.exists("/usr/local/sbin/astres.sh"):
         return ["/usr/local/sbin/astres.sh"] if _euid() == 0 else None
     sc = shutil.which("systemctl") or "/usr/bin/systemctl"
     if _euid() == 0:
