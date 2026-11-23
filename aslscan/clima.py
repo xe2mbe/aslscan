@@ -136,18 +136,42 @@ def _pws(cfg):
     obs = (d.get("observations") or [None])[0]
     if not obs:
         raise RuntimeError("la estación {} no tiene lecturas recientes".format(est))
+    try:
+        edad = time.time() - float(obs.get("epoch"))
+    except (TypeError, ValueError):
+        edad = 0
+    if edad > 3600:
+        raise RuntimeError("la estación {} no reporta desde hace {} min".format(est, int(edad // 60)))
     u = obs.get("imperial" if imp else "metric") or {}
-    temp = u.get("temp")
+    # Rangos posibles: lo de fuera (p. ej. -32768 = sensor sin dato) no se usa
+    t_min, t_max = (-75, 140) if imp else (-60, 60)
+    v_max = 250 if imp else 400
+    p_min, p_max = (23.6, 32.5) if imp else (800, 1100)
+
+    def ok(x, lo, hi):
+        try:
+            x = float(x)
+        except (TypeError, ValueError):
+            return None
+        return x if lo <= x <= hi else None
+    temp = ok(u.get("temp"), t_min, t_max)
     sens = temp
     if temp is not None:
         calor, frio = (80, 50) if imp else (27, 10)
-        if temp >= calor and u.get("heatIndex") is not None:
-            sens = u["heatIndex"]
-        elif temp <= frio and u.get("windChill") is not None:
-            sens = u["windChill"]
-    return {"temp": temp, "sensacion": sens, "humedad": obs.get("humidity"), "viento": u.get("windSpeed"),
-            "rumbo": obs.get("winddir"), "racha": u.get("windGust"), "presion": u.get("pressure"),
-            "estacion": obs.get("stationID") or est}
+        hi, wc = ok(u.get("heatIndex"), t_min, t_max), ok(u.get("windChill"), t_min, t_max)
+        if temp >= calor and hi is not None:
+            sens = hi
+        elif temp <= frio and wc is not None:
+            sens = wc
+    out = {"temp": temp, "sensacion": sens, "humedad": ok(obs.get("humidity"), 0, 100),
+           "viento": ok(u.get("windSpeed"), 0, v_max), "rumbo": ok(obs.get("winddir"), 0, 360),
+           "racha": ok(u.get("windGust"), 0, v_max), "presion": ok(u.get("pressure"), p_min, p_max)}
+    nombres = {"temp": "temperatura", "humedad": "humedad", "viento": "viento", "presion": "presión"}
+    out["faltan"] = [n for k, n in nombres.items() if out[k] is None]
+    if len(out["faltan"]) == len(nombres):
+        raise RuntimeError("la estación {} no está dando lecturas válidas".format(est))
+    out["estacion"] = obs.get("stationID") or est
+    return out
 
 
 def consultar(cfg):
@@ -163,10 +187,16 @@ def consultar(cfg):
     if (cfg.get("wx_pws_station") or "").strip() and (cfg.get("wx_pws_key") or "").strip():
         try:
             p = _pws(cfg)
+            faltan = p.pop("faltan")
             base = datos or {"codigo": None, "dias": []}
+            if p["temp"] is None:                     # la sensación va con la temperatura que se use
+                p["sensacion"] = None
             base.update({k: v for k, v in p.items() if v is not None})
             base["fuente"] = "estación {}".format(p["estacion"]) + (" + Open-Meteo" if datos else "")
             datos = base
+            if faltan:
+                avisos.append("La estación {} no está dando {}{}".format(
+                    p["estacion"], ", ".join(faltan), "; se usa Open-Meteo" if datos.get("dias") else ""))
         except RuntimeError as e:
             avisos.append("Estación: {}".format(e))
     if not datos:
