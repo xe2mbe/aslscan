@@ -19,7 +19,7 @@ ASLSCAN is the **Dashboard of [HAMNA Web](https://github.com/xe2mbe/hamna)** as 
 - **Node search** in the AllStar directory by callsign, node number, description or location, with **● Online / ● No reply / ○ Offline** labels (AllStar DNS + IAX POKE).
 - **IRLP**: the node or reflector it's connected to, COS/PTT, the other nodes on the reflector, connect/disconnect, enable/disable, inactivity timeout, AUX outputs, DTMF, the IRLP log and the switch to turn the old IRLPvCON off.
 - **🔊 Live listening** from the page (8 kHz, up to 8 listeners).
-- **📢 Announcements** (Schedule → Announcements): short announcements (up to 60 s) that the node transmits on its own at given times, every N minutes or once, read by a voice (Azure, ElevenLabs or Piper/asl3-tts), with the time and the weather if you want, uploaded or recorded from the page; they wait for a quiet channel and never interrupt (AllStar nodes).
+- **📢 Announcements** (Schedule → Announcements): short announcements (up to 60 s) that the node transmits on its own at given times, every N minutes or once, read by a voice (Azure, ElevenLabs or Piper/asl3-tts), with the time and the weather if you want; plus **⚠ automatic alerts** for weather, forecast and earthquakes, uploaded or recorded from the page; they wait for a quiet channel and never interrupt (AllStar nodes).
 - **Telegram bot**: 📋 Menu → 🔗 Connections (see, connect with your favorites by category or by number, change the mode, disconnect), 🩺 Health and 🗺 Nodes. Alerts for health, failed backups and nodes that stop reporting.
 - **Nodes panel**: each node reports its health, device and version to a hub every minute. ASLSCAN and HAMNA Web nodes can report to the same hub.
 - **Users** with roles (administrator, operator, read only), sessions, attempt lockout, photo and language (English / Spanish).
@@ -35,6 +35,7 @@ ASLSCAN is the **Dashboard of [HAMNA Web](https://github.com/xe2mbe/hamna)** as 
 | **Users** | Same as HAMNA: create, edit, roles, sessions, lockouts |
 | **Voice** | The voice for announcements: Azure (key, region, voice, style, speed, pitch), ElevenLabs (key, voice, model) or Piper (`sudo apt install asl3-tts`), with a test, and the pronunciation dictionary |
 | **Weather** | The location for the weather variables (Open-Meteo) and, optionally, your Weather Underground station |
+| **Alerts** | Automatic weather, forecast and earthquake alerts: limits, hours, where they go out, examples |
 | **Telegram** | The bot (token, chat), who has it linked, and the alerts |
 | **Backup** | Automatic, download and restore, receive from other nodes |
 | **System** | Updates, equipment health, live audio, node info, IRLPvCON and the nodes panel |
@@ -96,6 +97,15 @@ Set your location in **Settings → Weather** (search the city, use 📍 My loca
 - Templates for a new announcement: **🕐 Time** (every 30 min), **🕐 Time and temperature** and **🌤 Weather report** (every hour at :47). They're ordinary announcements: edit the text, the times, RF/Net or pause them.
 - The weather is read a minute before the announcement goes out and kept 10 min. If the time or the weather can't be generated right then (no internet, voice down), that slot is skipped instead of airing old data.
 - If another program already announces the time, the weather or plays audio on the node (`saytime.pl` and the like in the crontab), Schedule → Announcements says so, so it isn't heard twice. ASLSCAN never touches other programs.
+
+### Automatic alerts (weather and earthquakes)
+
+**Settings → Alerts** (everything off by default; an empty limit turns that check off). They use the location and units from Settings → Weather and the voice from Settings → Voice.
+
+- **Current weather**: sustained wind, gusts, heavy rain, pressure dropping fast (in 3 h), heat and cold. Checked every 10 min, only within a time window (nobody gets woken up at night), and the same alert isn't repeated before N minutes.
+- **Forecast**: thunderstorm, heavy rain (mm in an hour + probability), gusts, heat or cold expected in the next hours; announced N minutes ahead (e.g. `120, 30`).
+- **Earthquakes** ([USGS](https://earthquake.usgs.gov), worldwide, keyless): nearby within a radius, regional within a bigger radius and, optionally, strong ones anywhere in the world. Only earthquakes from the last 30 minutes are announced, said a few times (e.g. twice, 10 min apart), at any hour.
+- They go through the same queue as the announcements, ahead of them, and wait for a clear channel; RF only or RF + Net. **Schedule → Alerts** shows the current reading against each limit, what the forecast brings, the earthquakes within your limits and the alerts sent, with **↻ Check now**. Settings has **▶ Listen** examples.
 
 ### Times from another time zone
 
@@ -175,7 +185,7 @@ ASLSCAN es el **Dashboard de [HAMNA Web](https://github.com/xe2mbe/hamna)** como
 - **Buscador de nodos** en el directorio de AllStar por indicativo, número, descripción o lugar, con etiquetas **● En línea / ● Sin resp. / ○ Apagado** (DNS de AllStar + POKE de IAX).
 - **IRLP**: a qué nodo o reflector está conectado, COS/PTT, los demás nodos del reflector, conectar/desconectar, habilitar/deshabilitar, desconexión por inactividad, salidas AUX, DTMF, la bitácora de IRLP y el botón para apagar el viejo IRLPvCON.
 - **🔊 Escuchar en vivo** desde la página (8 kHz, hasta 8 personas).
-- **📢 Anuncios** (Programación → Anuncios): anuncios cortos (hasta 60 s) que el nodo transmite solo a ciertas horas, cada N minutos o una vez, con voz (Azure, ElevenLabs o Piper/asl3-tts), y si quieres con la hora y el clima, subidos o grabados desde la página; esperan a que el canal esté libre y nunca interrumpen (nodos AllStar).
+- **📢 Anuncios** (Programación → Anuncios): anuncios cortos (hasta 60 s) que el nodo transmite solo a ciertas horas, cada N minutos o una vez, con voz (Azure, ElevenLabs o Piper/asl3-tts), y si quieres con la hora y el clima; además **⚠ alertas automáticas** de clima, pronóstico y sismos, subidos o grabados desde la página; esperan a que el canal esté libre y nunca interrumpen (nodos AllStar).
 - **Bot de Telegram**: 📋 Menú → 🔗 Conexiones (ver, conectar con tus favoritos por categoría o por número, cambiar el modo, desconectar), 🩺 Salud y 🗺 Nodos. Avisos de salud, de respaldos fallidos y de nodos que dejan de reportar.
 - **Panel de nodos**: cada nodo manda a un hub su salud, equipo y versión cada minuto. Los nodos con ASLSCAN y con HAMNA Web pueden reportar al mismo hub.
 - **Usuarios** con roles (administrador, operador, solo lectura), sesiones, bloqueo por intentos, foto e idioma (inglés / español).
@@ -191,6 +201,7 @@ ASLSCAN es el **Dashboard de [HAMNA Web](https://github.com/xe2mbe/hamna)** como
 | **Usuarios** | Igual que en HAMNA: crear, editar, roles, sesiones, bloqueos |
 | **Voz** | La voz de los anuncios: Azure (clave, región, voz, estilo, velocidad, tono), ElevenLabs (clave, voz, modelo) o Piper (`sudo apt install asl3-tts`), con prueba, y el diccionario de pronunciación |
 | **Clima** | La ubicación para las variables del clima (Open-Meteo) y, si quieres, tu estación de Weather Underground |
+| **Alertas** | Alertas automáticas de clima, pronóstico y sismos: límites, horario, por dónde salen, ejemplos |
 | **Telegram** | El bot (token, chat), quién lo tiene vinculado y los avisos |
 | **Respaldo** | Automático, descargar y restaurar, recibir de otros nodos |
 | **Sistema** | Actualizaciones, salud del equipo, audio en vivo, datos del nodo, IRLPvCON y el panel de nodos |
@@ -252,6 +263,15 @@ Pon tu ubicación en **Ajustes → Clima** (busca la ciudad, usa 📍 Mi ubicaci
 - Plantillas al crear un anuncio: **🕐 Hora** (cada 30 min), **🕐 Hora y temperatura** y **🌤 Reporte del clima** (cada hora a los :47). Son anuncios normales: cambias el texto, las horas, RF/Net o los pausas.
 - El clima se lee un minuto antes de que salga el anuncio y se guarda 10 min. Si en ese momento no se puede generar la hora o el clima (sin internet, voz caída), ese turno se salta en vez de transmitir un dato viejo.
 - Si otro programa ya anuncia la hora, el clima o reproduce audios en el nodo (`saytime.pl` y similares en el crontab), Programación → Anuncios lo avisa para que no se oiga dos veces. ASLSCAN nunca toca otros programas.
+
+### Alertas automáticas (clima y sismos)
+
+**Ajustes → Alertas** (todo viene apagado; un límite vacío apaga esa revisión). Usan la ubicación y las unidades de Ajustes → Clima y la voz de Ajustes → Voz.
+
+- **Clima de este momento**: viento sostenido, rachas, lluvia intensa, presión que baja rápido (en 3 h), calor y frío. Se revisa cada 10 min, solo dentro de un horario (de noche no despierta a nadie) y el mismo aviso no se repite antes de N minutos.
+- **Pronóstico**: tormenta eléctrica, lluvia fuerte (mm en una hora + probabilidad), rachas, calor o frío que se esperan en las próximas horas; se avisa N minutos antes (p. ej. `120, 30`).
+- **Sismos** ([USGS](https://earthquake.usgs.gov), mundial y sin clave): cercanos dentro de un radio, de la región dentro de un radio mayor y, si quieres, los fuertes de cualquier parte del mundo. Solo se avisan los de hace menos de 30 minutos, se repiten unas veces (p. ej. 2, cada 10 min) y salen a cualquier hora.
+- Salen por la misma cola que los anuncios, antes que ellos, y esperan canal libre; solo RF o RF + Net. **Programación → Alertas** muestra la lectura contra cada límite, lo que trae el pronóstico, los sismos que cumplen tus límites y las alertas enviadas, con **↻ Revisar ahora**. En Ajustes hay ejemplos para **▶ Escuchar**.
 
 ### Horas de otra zona horaria
 

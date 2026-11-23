@@ -467,6 +467,7 @@ function showSet(k) {
   if (k === "tonos") loadTonos();
   if (k === "voz") { loadVoz(); loadPron(); }
   if (k === "clima") loadClima();
+  if (k === "alertas") loadAlertasSet();
   if (k === "sistema") loadHubSt();
 }
 async function loadBotSt() {
@@ -2145,13 +2146,15 @@ const AN_PLANTILLAS = [
     texto: "{saludo}. Reporte del clima en {lugar}: {condicion}. Temperatura de {temperatura}, sensación térmica de {sensacion}. Humedad del {humedad}. Viento {viento}. {pronostico}",
     modo: "cada", cada_min: 60, desde_h: "07:47", hasta_h: "21:47" },
 ];
-const anDetalle = (t) => LG(t, String(t || "").replace(/^manual · /, "manual · ").replace("solo este nodo", "this node only").replace("nodo y enlaces", "node and links")
+const anDetalle = (t) => LG(t, String(t || "").replace(/^manual · /, "manual · ").replace(/^alerta · /, "alert · ").replace("solo este nodo", "this node only").replace("nodo y enlaces", "node and links")
   .replace(/^El canal estuvo ocupado (\d+) min$/, "The channel was busy for $1 min")
   .replace(/^Los anuncios solo salen en nodos AllStar.*$/, "Announcements only go out on AllStar nodes with a node number (Settings → Node)")
   .replace(/^Falta el audio del anuncio.*$/, "The announcement's audio is missing; edit it and save it again"));
 const puedeAnunciar = () => S.me && (S.me.rol === "admin" || S.me.rol === "operador");
 async function loadProg() {
   clearTimeout(S.anT);
+  progSub(S.progSub);
+  if (S.progSub === "alertas") return loadAlertas();
   try { S.an = await api("api/anuncios"); renderAnuncios(); }
   catch (e) { $("#anList").innerHTML = `<p class="empty">${esc(e.message)}</p>`; }
   // Mientras se ve la pestaña: el estado (esperando canal / al aire) y el próximo se refrescan solos
@@ -2193,7 +2196,7 @@ function anCuandoTxt(a) {
 }
 function renderAnuncios() {
   const d = S.an, lst = d.anuncios, puede = puedeAnunciar(), act = (d.emisor || {}).actual;
-  $("#btnNewAnuncio").classList.toggle("hidden", !puede || !d.asl);
+  $("#btnNewAnuncio").classList.toggle("hidden", !puede || !d.asl || S.progSub !== "anuncios");
   $("#anCnt").textContent = lst.length || "";
   let aviso = !d.asl ? `<div class="note warn">${LG("Los anuncios salen al aire solo en nodos AllStar (ASL). Este nodo no es ASL o no tiene número de nodo en Ajustes → Nodo.", "Announcements only go on air on AllStar (ASL) nodes. This node isn't ASL or has no node number in Settings → Node.")}</div>`
     : !d.voz.lista ? `<div class="note warn">${LG("La voz no está configurada", "The voice isn't set up")} (${esc(d.voz.nombre || "")}). ${isAdmin() ? LG("Revisa Ajustes → Voz. Mientras, puedes subir o grabar el audio.", "Check Settings → Voice. Meanwhile you can upload or record the audio.") : LG("Pídele al administrador que la configure; mientras, puedes subir o grabar el audio.", "Ask the administrator to set it up; meanwhile you can upload or record the audio.")}</div>` : "";
@@ -2628,6 +2631,94 @@ $("#btnVozTest").onclick = async () => {
   try {
     const r = await api("api/anuncios/voz", { method: "POST", json: { texto: $("#vozTest").value } });
     const au = $("#vozTestAudio"); au.src = r.url; au.classList.remove("hidden"); au.play().catch(() => {});
+  } catch (e) { toast(e.message, true); } finally { busy(b, false); }
+};
+
+/* ── Programación → Alertas (clima, pronóstico y sismos) ─────────────────── */
+S.progSub = (() => { try { return localStorage.getItem("aslscan.progsub") || "anuncios"; } catch { return "anuncios"; } })();
+function progSub(k) {
+  S.progSub = k === "alertas" ? "alertas" : "anuncios";
+  try { localStorage.setItem("aslscan.progsub", S.progSub); } catch {}
+  $$("#progTabs [data-prog]").forEach((b) => { b.classList.toggle("active", b.dataset.prog === S.progSub); b.setAttribute("aria-selected", b.dataset.prog === S.progSub); });
+  $("#anView").classList.toggle("hidden", S.progSub !== "anuncios");
+  $("#alView").classList.toggle("hidden", S.progSub !== "alertas");
+  $("#btnNewAnuncio").classList.toggle("hidden", S.progSub !== "anuncios" || !(S.an && S.an.asl && puedeAnunciar()));
+}
+$("#progTabs").onclick = (e) => { const b = e.target.closest("[data-prog]"); if (b) { progSub(b.dataset.prog); loadProg(); } };
+const AL_U = (imp) => ({ vel: imp ? "mph" : "km/h", lluvia: imp ? "in/h" : "mm/h", presion: imp ? "inHg" : "hPa", temp: imp ? "°F" : "°C", mm: imp ? "in" : "mm" });
+const AL_TIPO_U = { viento: "vel", racha: "vel", lluvia: "lluvia", presion: "presion", calor: "temp", frio: "temp" };
+const AL_NOMBRE_EN = { "Viento": "Wind", "Rachas": "Gusts", "Lluvia": "Rain", "Calor": "Heat", "Frío": "Cold", "Presión (baja en 3 h)": "Pressure (drop in 3 h)",
+  "Tormenta eléctrica": "Thunderstorm", "Lluvia fuerte": "Heavy rain", "Rachas fuertes": "Strong gusts" };
+const alN = (t) => LG(t, AL_NOMBRE_EN[t] || t);
+const alNum = (v, d = 1) => v == null ? "—" : (Math.round(v * Math.pow(10, d)) / Math.pow(10, d)).toLocaleString();
+const alHace = (ts) => { if (!ts) return LG("todavía no", "not yet"); const m = Math.round((Date.now() / 1000 - ts) / 60); return m < 1 ? LG("hace un momento", "just now") : LG(`hace ${m} min`, `${m} min ago`); };
+async function loadAlertas() {
+  clearTimeout(S.anT);
+  let d;
+  try { d = await api("api/alertas"); } catch (e) { $("#alView").innerHTML = `<p class="empty">${esc(e.message)}</p>`; return; }
+  S.al = d; renderAlertas();
+  S.anT = setTimeout(() => { if (S.tab === "prog" && S.progSub === "alertas" && !document.hidden) loadAlertas(); }, 60000);
+}
+function renderAlertas() {
+  const d = S.al, u = AL_U(d.imperial), act = d.activas, algo = act.clima || act.pronostico || act.sismos;
+  $("#alCnt").textContent = algo ? "●" : "";
+  const chip = (on, t) => `<span class="chip ${on ? "ok" : ""}">${on ? "✓" : "○"} ${t}</span>`;
+  let h = "";
+  if (!d.configurado) h += `<div class="note warn">${LG("Primero pon la ubicación en Ajustes → Clima: sin ella no hay alertas.", "First set the location in Settings → Weather: without it there are no alerts.")}</div>`;
+  else if (!algo) h += `<div class="note">${LG("Las alertas están apagadas.", "Alerts are off.")} ${isAdmin() ? LG("Enciéndelas en Ajustes → Alertas.", "Turn them on in Settings → Alerts.") : LG("El administrador las enciende en Ajustes → Alertas.", "The administrator turns them on in Settings → Alerts.")}</div>`;
+  h += `<div class="row gap wrap al-top">${chip(act.clima, LG("Clima de este momento", "Current weather"))}${chip(act.pronostico, LG("Pronóstico", "Forecast"))}${chip(act.sismos, LG("Sismos", "Earthquakes"))}
+    <span class="muted">${LG("Clima y pronóstico solo de", "Weather and forecast only from")} ${esc(d.horario[0])} ${LG("a", "to")} ${esc(d.horario[1])}</span>
+    ${puedeAnunciar() && d.configurado ? `<button type="button" class="btn sm" id="btnAlRevisar">↻ ${LG("Revisar ahora", "Check now")}</button>` : ""}</div>`;
+  // Clima de este momento
+  const c = d.clima, lec = c.lectura || {};
+  const filas = (c.evaluacion || []).map((x) => `<tr class="${x.alerta ? "al-on" : ""}"><td>${esc(alN(x.nombre))}</td><td>${alNum(x.valor)} ${u[AL_TIPO_U[x.tipo]] || ""}</td>
+    <td class="muted">${x.tipo === "frio" ? "≤" : "≥"} ${alNum(x.umbral)}</td><td>${x.alerta ? `<span class="chip warn">⚠ ${LG("pasó el límite", "over the limit")}</span>` : `<span class="chip ok">${LG("normal", "normal")}</span>`}</td></tr>`).join("");
+  h += `<div class="cards al-cards"><div class="card"><h3>🌬 ${LG("Clima de este momento", "Current weather")}${d.lugar ? ` · <span translate="no">${esc(d.lugar)}</span>` : ""}</h3>
+    ${c.error ? `<p class="note warn">⚠ ${esc(c.error)}</p>` : ""}
+    ${lec.temp != null || lec.viento != null ? `<p class="al-lec">🌡 ${alNum(lec.temp)} ${u.temp} · 💧 ${alNum(lec.humedad, 0)} % · 🌬 ${alNum(lec.viento)} ${u.vel} (${LG("rachas", "gusts")} ${alNum(lec.racha)}) · ${alNum(lec.presion)} ${u.presion}${c.presion_3h != null && Math.abs(c.presion_3h) >= 0.05 ? ` (${c.presion_3h > 0 ? "▼" : "▲"} ${alNum(Math.abs(c.presion_3h))} ${LG("en 3 h", "in 3 h")})` : ""} · ☔ ${alNum(lec.lluvia)} ${u.lluvia}</p>` : ""}
+    ${filas ? `<table class="al-tabla"><tbody>${filas}</tbody></table>` : `<p class="muted">${act.clima ? LG("Todavía no se revisa.", "Not checked yet.") : LG("Apagado.", "Off.")}</p>`}
+    <p class="meta muted">${c.fuente ? LG("Fuente", "Source") + ": " + esc(c.fuente) + " · " : ""}${LG("Revisado", "Checked")} ${alHace(c.revisado)}</p></div>`;
+  // Pronóstico
+  const pr = d.pronostico || [];
+  h += `<div class="card"><h3>⛈ ${LG("Pronóstico", "Forecast")}</h3>${!act.pronostico ? `<p class="muted">${LG("Apagado.", "Off.")}</p>` : !pr.length ? `<p class="muted">${LG("Nada fuera de lo normal en las próximas horas.", "Nothing out of the ordinary in the coming hours.")}</p>`
+    : pr.map((p) => `<div class="al-ev"><b>${esc(alN(p.nombre))}</b> · ${anFecha(p.desde)} → ${(p.hasta || "").slice(11)}
+      <div class="muted" translate="no">«${esc(p.texto)}»</div>
+      <small class="muted">${LG("Avisos", "Alerts")}: ${p.avisos.map((a) => anFecha(a).slice(-5)).join(", ")} · ${LG(`ya salieron ${p.hechos}`, `${p.hechos} sent`)}</small></div>`).join("")}</div>`;
+  // Sismos
+  const sm = d.sismos, NIV = { cerca: LG("cercano", "nearby"), region: LG("región", "region"), mundo: LG("mundo", "world") };
+  h += `<div class="card"><h3>🌎 ${LG("Sismos que cumplen tus límites (últimas 24 h)", "Earthquakes within your limits (last 24 h)")}</h3>
+    ${sm.error ? `<p class="note warn">⚠ ${esc(sm.error)}</p>` : ""}
+    ${!act.sismos && !sm.revisado ? `<p class="muted">${LG("Apagado.", "Off.")}</p>` : !sm.lista.length ? `<p class="muted">${LG("Ninguno.", "None.")}</p>`
+    : `<table class="al-tabla"><tbody>${sm.lista.map((s) => `<tr><td><b>M${s.mag.toFixed(1)}</b></td><td translate="no">${esc(LG((s.lugar_es || s.lugar).replace(/^(en|a) /, ""), s.lugar))}${s.dist != null ? ` <span class="muted">· ${s.dist.toLocaleString()} km</span>` : ""}</td>
+      <td class="muted">${new Date(s.t * 1000).toLocaleString([], { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td><td><span class="chip">${NIV[s.nivel]}</span>${s.avisado ? ` <span class="chip ok">✓ ${LG("avisado", "announced")}</span>` : ""}</td></tr>`).join("")}</tbody></table>`}
+    <p class="meta muted">USGS · ${LG("Revisado", "Checked")} ${alHace(sm.revisado)}</p></div></div>`;
+  // Historial
+  const hi = d.historial || [];
+  h += `<details class="an-logwrap" ${hi.length ? "" : "hidden"}><summary>${LG("Alertas enviadas", "Alerts sent")} (${hi.length})</summary><div>${hi.map((x) => `<div class="an-log-row ok"><span class="when">${anFecha(x.cuando)}</span><b translate="no">${esc(x.nombre)}</b><small class="muted" translate="no">${esc(x.texto)}</small></div>`).join("")}</div></details>
+    <p class="muted al-nota">ⓘ ${LG("Si una alerta sale, queda también en la bitácora de anuncios (✓ salió, ⚠ canal ocupado, ✗ error).", "When an alert goes out it is also in the announcement log (✓ went out, ⚠ channel busy, ✗ error).")}</p>`;
+  const abierto = $("#alView details") && $("#alView details").open;
+  $("#alView").innerHTML = h;
+  if (abierto && $("#alView details")) $("#alView details").open = true;
+  const rb = $("#btnAlRevisar");
+  if (rb) rb.onclick = async () => {
+    busy(rb, true, LG("Revisando…", "Checking…"));
+    try { S.al = await api("api/alertas/revisar", { method: "POST" }); renderAlertas(); } catch (e) { toast(e.message, true); busy(rb, false); }
+  };
+}
+
+/* ── Ajustes → Alertas ───────────────────────────────────────────────────── */
+async function loadAlertasSet() {
+  const imp = S.cfg && S.cfg.wx_unidades === "imperial", u = AL_U(imp);
+  $$("#setForm .al-u").forEach((x) => (x.textContent = u[x.dataset.u] || ""));
+  $("#alSinUbic").classList.toggle("hidden", !!(S.cfg && S.cfg.wx_lat && S.cfg.wx_lon));
+  try { S.alEj = (await api("api/alertas")).ejemplos; } catch {}
+}
+$("#btnAlEj").onclick = async () => {
+  const b = $("#btnAlEj"), t = (S.alEj || {})[$("#alEjTipo").value]; if (!t) return;
+  busy(b, true, LG("Generando…", "Generating…"));
+  try {
+    const r = await api("api/anuncios/voz", { method: "POST", json: { texto: t } });
+    const au = $("#alEjAudio"); au.src = r.url; au.classList.remove("hidden"); au.play().catch(() => {});
   } catch (e) { toast(e.message, true); } finally { busy(b, false); }
 };
 

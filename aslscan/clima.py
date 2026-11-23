@@ -14,6 +14,7 @@ Se guarda en memoria 10 min. Si en ese momento no se puede consultar, se usa
 la última lectura de hasta 3 h; más vieja que eso no se dice (el anuncio se
 salta en vez de dar un clima equivocado).
 """
+import calendar
 import datetime as dt
 import json
 import logging
@@ -105,9 +106,11 @@ def _open_meteo(cfg):
     imp = imperial(cfg)
     q = {"latitude": "{:.4f}".format(lat), "longitude": "{:.4f}".format(lon), "timezone": "auto", "forecast_days": 2,
          "current": "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,"
-                    "wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl",
+                    "wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,precipitation",
          "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
-         "wind_speed_unit": "mph" if imp else "kmh", "temperature_unit": "fahrenheit" if imp else "celsius"}
+         "hourly": "temperature_2m,precipitation_probability,precipitation,wind_gusts_10m,weather_code",
+         "wind_speed_unit": "mph" if imp else "kmh", "temperature_unit": "fahrenheit" if imp else "celsius",
+         "precipitation_unit": "inch" if imp else "mm"}
     d = _get(OM_URL + "?" + urllib.parse.urlencode(q))
     c, dia = d.get("current") or {}, d.get("daily") or {}
     if c.get("temperature_2m") is None:
@@ -115,10 +118,25 @@ def _open_meteo(cfg):
     presion = c.get("pressure_msl")
     if imp and presion is not None:
         presion = presion * 0.02953                     # hPa → inHg
+    lluvia = c.get("precipitation")                   # lo que cayó en los últimos 15 min
     out = {"temp": c.get("temperature_2m"), "sensacion": c.get("apparent_temperature"),
            "humedad": c.get("relative_humidity_2m"), "viento": c.get("wind_speed_10m"),
            "rumbo": c.get("wind_direction_10m"), "racha": c.get("wind_gusts_10m"), "presion": presion,
-           "codigo": c.get("weather_code"), "dias": []}
+           "lluvia": lluvia * 4 if lluvia is not None else None,     # → por hora
+           "codigo": c.get("weather_code"), "dias": [], "horas": []}
+    # Pronóstico hora por hora, con la hora pasada a la del nodo (Open-Meteo la da en la del lugar)
+    h, off = d.get("hourly") or {}, int(d.get("utc_offset_seconds") or 0)
+    for i, t in enumerate(h.get("time") or []):
+        def hv(k):
+            lst = h.get(k) or []
+            return lst[i] if i < len(lst) else None
+        try:
+            utc = calendar.timegm(time.strptime(t, "%Y-%m-%dT%H:%M")) - off
+        except ValueError:
+            continue
+        out["horas"].append({"t": dt.datetime.fromtimestamp(utc).strftime("%Y-%m-%d %H:%M"), "temp": hv("temperature_2m"),
+                             "prob": hv("precipitation_probability"), "mm": hv("precipitation"),
+                             "racha": hv("wind_gusts_10m"), "codigo": hv("weather_code")})
     for i, fecha in enumerate(dia.get("time") or []):
         def v(k):
             lst = dia.get(k) or []
@@ -165,7 +183,8 @@ def _pws(cfg):
             sens = wc
     out = {"temp": temp, "sensacion": sens, "humedad": ok(obs.get("humidity"), 0, 100),
            "viento": ok(u.get("windSpeed"), 0, v_max), "rumbo": ok(obs.get("winddir"), 0, 360),
-           "racha": ok(u.get("windGust"), 0, v_max), "presion": ok(u.get("pressure"), p_min, p_max)}
+           "racha": ok(u.get("windGust"), 0, v_max), "presion": ok(u.get("pressure"), p_min, p_max),
+           "lluvia": ok(u.get("precipRate"), 0, 20 if imp else 500)}
     nombres = {"temp": "temperatura", "humedad": "humedad", "viento": "viento", "presion": "presión"}
     out["faltan"] = [n for k, n in nombres.items() if out[k] is None]
     if len(out["faltan"]) == len(nombres):
@@ -188,7 +207,7 @@ def consultar(cfg):
         try:
             p = _pws(cfg)
             faltan = p.pop("faltan")
-            base = datos or {"codigo": None, "dias": []}
+            base = datos or {"codigo": None, "dias": [], "horas": []}
             if p["temp"] is None:                     # la sensación va con la temperatura que se use
                 p["sensacion"] = None
             base.update({k: v for k, v in p.items() if v is not None})

@@ -7,7 +7,7 @@ import logging
 import os
 import time
 
-from . import anuncios, autobackup, paths
+from . import alertas, anuncios, autobackup, paths
 
 log = logging.getLogger("aslscan.tareas")
 
@@ -39,6 +39,10 @@ def loop():
             anuncios.tick()
         except Exception:
             log.exception("Error al revisar los anuncios")
+        try:
+            alertas.tick()
+        except Exception:
+            log.exception("Error al revisar las alertas")
         if time.time() - ultimo_tmp > 3600:
             ultimo_tmp = time.time()
             _limpiar_tmp()

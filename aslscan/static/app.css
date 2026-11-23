@@ -1158,3 +1158,23 @@ textarea.pron-ta { position: relative; background: transparent !important; displ
 .an-otros ul { margin: 6px 0 0; padding-left: 18px; }
 .an-otros li { margin-bottom: 6px; overflow-wrap: anywhere; }
 .wx-prueba .note.warn { padding: 8px 12px; border-radius: 10px; color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, transparent); }
+
+/* Alertas */
+.al-top { align-items: center; margin-bottom: 12px; }
+.al-top .btn { margin-left: auto; }
+.al-cards { margin-bottom: 14px; }
+.al-cards .card h3 { margin: 0 0 8px; font-size: 1rem; }
+.al-lec { margin: 0 0 8px; font-size: .9rem; }
+.al-tabla { border-collapse: collapse; width: 100%; font-size: .86rem; }
+.al-tabla td { padding: 5px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.al-tabla tr.al-on td { background: color-mix(in srgb, var(--warn) 9%, transparent); }
+.al-ev { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .88rem; }
+.al-ev:last-child { border-bottom: 0; }
+.al-nota { font-size: .82rem; }
+#alView .note { padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; font-size: .9rem; background: var(--surface2); }
+#alView .note.warn, .al-cards .note.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, transparent); padding: 8px 12px; border-radius: 10px; }
+.al-h { margin: 18px 0 6px; font-size: .98rem; }
+.al-check { align-self: end; margin-bottom: 14px; }
+#alSinUbic { color: var(--warn); }
+.al-ej { margin-top: 14px; }
+.al-ej select { width: auto; }

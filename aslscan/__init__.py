@@ -1,2 +1,2 @@
 """ASLSCAN — Dashboard web para nodos AllStarLink, HamVOIP e IRLP (separado de HAMNA Web)."""
-VERSION = "1.7.1"
+VERSION = "1.8.0"

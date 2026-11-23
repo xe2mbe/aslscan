@@ -66,6 +66,23 @@ DEFAULTS = {
     "wx_unidades": "metric",    # metric | imperial
     "wx_pws_station": "",       # estación propia en Weather Underground (opcional)
     "wx_pws_key": "",
+
+    # Alertas automáticas (alertas.py); todo apagado. Umbral vacío = esa revisión no se hace.
+    "al_clima_on": False,
+    "al_viento": "50", "al_racha": "70", "al_lluvia": "20", "al_presion": "4", "al_calor": "40", "al_frio": "-2",
+    "al_repetir_min": "60",
+    "al_clima_desde": "07:00", "al_clima_hasta": "22:00",
+    "al_clima_destino": "local",
+    "al_pron_on": False,
+    "al_pron_horas": "12", "al_pron_antes": "120, 30",
+    "al_pron_prob": "60", "al_pron_mm": "10", "al_pron_racha": "70", "al_pron_calor": "40", "al_pron_frio": "-2",
+    "al_pron_tormenta": True,
+    "al_sismo_on": False,
+    "al_sismo_cerca_km": "300", "al_sismo_cerca_mag": "4.0",
+    "al_sismo_region_km": "1500", "al_sismo_region_mag": "6.0",
+    "al_sismo_mundo_mag": "7.5",
+    "al_sismo_repetir": "2", "al_sismo_cada": "10",
+    "al_sismo_destino": "local",
     "pron_dict": [],            # diccionario de pronunciación (pronuncia.py)
 
     # Seguridad

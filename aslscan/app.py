@@ -13,7 +13,7 @@ import time
 import uuid
 from pathlib import Path
 
-from . import VERSION, anuncios, auth, clima, horas, pronuncia, tz, autobackup, backends, backup, health, db, links, notify, paths, sessions, settings, sysmon, tts, updates
+from . import VERSION, alertas, anuncios, auth, clima, horas, pronuncia, tz, autobackup, backends, backup, health, db, links, notify, paths, sessions, settings, sysmon, tts, updates
 from .live import live
 from .web import App, HTTPError, Response, jsonr, send_file
 
@@ -523,12 +523,17 @@ def tonos_aplicar(req):
 NUM_KEYS = {"ab_keep": int, "ab_recv_keep": int, "hub_alerta_min": int, "azure_rate": int, "azure_pitch": int,
             "eleven_stability": int, "eleven_similarity": int, "eleven_speed": int}
 BOOL_KEYS = {"tg_enabled", "tg_on_backup", "tg_on_health", "tg_bot_on", "ab_tg_on", "hub_on", "tg_on_nodes",
-             "ab_enabled", "ab_node_on", "ab_cloud_on"}
+             "ab_enabled", "ab_node_on", "ab_cloud_on", "al_clima_on", "al_pron_on", "al_pron_tormenta", "al_sismo_on"}
+AL_NUM = ("al_viento", "al_racha", "al_lluvia", "al_presion", "al_calor", "al_frio", "al_repetir_min", "al_pron_horas",
+          "al_pron_prob", "al_pron_mm", "al_pron_racha", "al_pron_calor", "al_pron_frio", "al_sismo_cerca_km",
+          "al_sismo_cerca_mag", "al_sismo_region_km", "al_sismo_region_mag", "al_sismo_mundo_mag", "al_sismo_repetir",
+          "al_sismo_cada")
 STR_KEYS = {"backend", "node", "irlp_env", "station_name", "tg_chat",
             "ab_hora", "ab_node_url", "ab_node_pin", "ab_cloud_folder", "hub_url", "hub_pin",
             "tts_engine", "azure_region", "azure_voice", "azure_style", "espeak_voice",
             "eleven_voice", "eleven_voice_name", "eleven_model",
-            "wx_lat", "wx_lon", "wx_lugar", "wx_unidades", "wx_pws_station"}
+            "wx_lat", "wx_lon", "wx_lugar", "wx_unidades", "wx_pws_station",
+            "al_clima_desde", "al_clima_hasta", "al_clima_destino", "al_pron_antes", "al_sismo_destino"} | set(AL_NUM)
 SECRET_IN = ("tg_token", "ab_node_token", "hub_token", "azure_key", "eleven_key", "wx_pws_key")
 
 
@@ -577,6 +582,7 @@ def ajustes_save(req):
     if "eleven_speed" in upd and not 70 <= upd["eleven_speed"] <= 120:
         raise ValueError("ElevenLabs: velocidad de 70 a 120 %")
     _clima_valida(upd)
+    _alertas_valida(upd)
     settings.save(upd)
     return ok(ajustes=settings.public())
 
@@ -727,6 +733,42 @@ def _clima_valida(upd):
         upd["wx_lugar"] = upd["wx_lugar"][:60]
     if "wx_pws_station" in upd:
         upd["wx_pws_station"] = re.sub(r"[^A-Za-z0-9_-]", "", upd["wx_pws_station"])[:30]
+
+
+def _alertas_valida(upd):
+    for k in AL_NUM:
+        if upd.get(k):
+            try:
+                upd[k] = "{:g}".format(float(upd[k].replace(",", ".")))
+            except ValueError:
+                raise ValueError("Alertas: «{}» no es un número".format(upd[k]))
+    for k in ("al_clima_desde", "al_clima_hasta"):
+        if k in upd and not re.match(r"^([01]\d|2[0-3]):[0-5]\d$", upd[k]):
+            raise ValueError("Horario de las alertas del clima inválido (HH:MM)")
+    for k in ("al_clima_destino", "al_sismo_destino"):
+        if k in upd and upd[k] not in ("local", "red"):
+            raise ValueError("Destino de las alertas inválido")
+    if "al_pron_antes" in upd:
+        mins = alertas._lista_min(upd["al_pron_antes"])
+        if upd["al_pron_antes"].strip() and not mins:
+            raise ValueError("Pronóstico: escribe los minutos antes, separados por coma (p. ej. 120, 30)")
+        upd["al_pron_antes"] = ", ".join(str(m) for m in mins)
+
+
+@app.route("/api/alertas", rol="lectura")
+def alertas_info(req):
+    r = alertas.resumen()
+    cfg = settings.load()
+    r["ejemplos"] = {k: alertas.ejemplo(k, cfg) for k in alertas.EJEMPLOS}
+    return jsonr(r)
+
+
+@app.route("/api/alertas/revisar", ("POST",), rol="operador")
+def alertas_revisar(req):
+    if not clima.configurado(settings.load()):
+        raise ValueError("Primero pon la ubicación en Ajustes → Clima")
+    alertas.revisar_ahora()
+    return alertas_info(req)
 
 
 @app.route("/api/clima/buscar", rol="admin")

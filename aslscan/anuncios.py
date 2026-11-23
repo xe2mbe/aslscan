@@ -401,7 +401,8 @@ class Emisor:
     """Una sola cola: los anuncios salen uno tras otro, cuando el canal está libre."""
 
     def __init__(self):
-        self.cola = []                 # [(id, motivo, destino)]; destino None = el del anuncio
+        self.cola = []                 # [(id, motivo, destino, alerta)]; destino None = el del anuncio
+                                       # alerta = {"texto", "nombre"} (alertas.py: id 0, van primero)
         self.lock = threading.Lock()
         self.evento = threading.Event()
         self.actual = None             # {"id", "nombre", "estado": esperando|al_aire, "desde"}
@@ -416,13 +417,26 @@ class Emisor:
         with self.lock:
             if any(x[0] == aid for x in self.cola) or (self.actual and self.actual["id"] == aid):
                 return False
-            self.cola.append((aid, motivo, destino))
+            self.cola.append((aid, motivo, destino, None))
+        self.evento.set()
+        return True
+
+    def encolar_alerta(self, texto, nombre, destino="local"):
+        """Alerta (clima, sismo): se dice con la voz al momento y sale antes que los anuncios en espera."""
+        with self.lock:
+            if any(x[3] and x[3]["texto"] == texto for x in self.cola):
+                return False
+            i = 0
+            while i < len(self.cola) and self.cola[i][3]:
+                i += 1
+            self.cola.insert(i, (0, "alerta", destino, {"texto": texto, "nombre": nombre}))
         self.evento.set()
         return True
 
     def estado(self):
         with self.lock:
-            return {"actual": dict(self.actual) if self.actual else None, "en_cola": [x[0] for x in self.cola]}
+            return {"actual": dict(self.actual) if self.actual else None, "en_cola": [x[0] for x in self.cola if not x[3]],
+                    "alertas_en_cola": [x[3]["nombre"] for x in self.cola if x[3]]}
 
     def al_aire(self):
         with self.lock:
@@ -442,15 +456,19 @@ class Emisor:
                 with self.lock:
                     if not self.cola:
                         break
-                    aid, motivo, destino = self.cola.pop(0)
+                    aid, motivo, destino, alerta = self.cola.pop(0)
                     # Ya cuenta como «en curso»: que no se pueda encolar otra vez mientras arranca
-                    self.actual = {"id": aid, "nombre": "", "estado": "esperando", "desde": time.time(), "motivo": motivo}
+                    self.actual = {"id": aid, "nombre": alerta["nombre"] if alerta else "", "estado": "esperando",
+                                   "desde": time.time(), "motivo": motivo}
                 try:
-                    self._uno(aid, motivo, destino)
+                    if alerta:
+                        self._alerta(alerta, destino)
+                    else:
+                        self._uno(aid, motivo, destino)
                 except Exception as e:
                     log.exception("Anuncio %s", aid)
                     try:
-                        _anotar(uno(aid), "error", str(e))
+                        _anotar(uno(aid) if not alerta else {"id": 0, "nombre": alerta["nombre"]}, "error", str(e))
                     except Exception:
                         pass
                 finally:
@@ -508,6 +526,40 @@ class Emisor:
             if temporal:
                 # Asterisk ya lo leyó; se borra un poco después por si va retrasado
                 threading.Timer(30, paths.rm, (temporal,)).start()
+
+    def _alerta(self, al, destino):
+        a = {"id": 0, "nombre": al["nombre"]}
+        cfg = settings.load()
+        node = str(cfg.get("node") or "").strip()
+        if backends.kind(cfg) != "asl" or not node:
+            _anotar(a, "error", "Las alertas solo salen en nodos AllStar con número de nodo (Ajustes → Nodo)")
+            return
+        with self.lock:
+            self.actual = {"id": 0, "nombre": al["nombre"], "estado": "esperando", "desde": time.time(), "motivo": "alerta",
+                           "destino": destino}
+        if not self._esperar_libre(node):
+            _anotar(a, "saltado", "El canal estuvo ocupado {} min".format(ESPERA_MAX // 60))
+            return
+        wav = paths.tmp_dir() / "alerta_{}.wav".format(uuid.uuid4().hex[:8])
+        try:
+            tts.sintetizar(al["texto"], cfg, wav)
+        except Exception as e:
+            paths.rm(wav)
+            _anotar(a, "error", "No pude generar la voz: {}".format(e))
+            return
+        dur = tts.duracion(wav)
+        modo = "playback" if destino == "red" else "localplay"
+        try:
+            with self.lock:
+                self.actual.update(estado="al_aire", desde=time.time(), dur=dur)
+            out = sessions._rx("rpt {} {} {}".format(modo, node, str(wav.with_suffix(""))), timeout=15)
+            if re.search(r"(?i)no such|not found|unable|error|usage|invalid", out or ""):
+                raise RuntimeError("Asterisk rechazó el comando: " + out.strip()[:200])
+            log.info("Alerta «%s» al aire (%s, %.1f s)", al["nombre"], modo, dur)
+            time.sleep(dur + 0.8)
+            _anotar(a, "ok", "alerta · " + ("nodo y enlaces" if modo == "playback" else "solo este nodo"))
+        finally:
+            threading.Timer(30, paths.rm, (wav,)).start()
 
     def _esperar_libre(self, node):
         fin = time.time() + ESPERA_MAX
