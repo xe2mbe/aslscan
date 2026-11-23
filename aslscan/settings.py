@@ -83,6 +83,10 @@ DEFAULTS = {
     "al_sismo_mundo_mag": "7.5",
     "al_sismo_repetir": "2", "al_sismo_cada": "10",
     "al_sismo_destino": "local",
+
+    # Atajos DTMF de ASLSCAN (dtmf.py): código sin el *, vacío = sin atajo
+    "dtmf_clima": "",
+    "dtmf_sismos": "",
     "pron_dict": [],            # diccionario de pronunciación (pronuncia.py)
 
     # Seguridad

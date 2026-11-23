@@ -36,6 +36,7 @@ ASLSCAN is the **Dashboard of [HAMNA Web](https://github.com/xe2mbe/hamna)** as 
 | **Voice** | The voice for announcements: Azure (key, region, voice, style, speed, pitch), ElevenLabs (key, voice, model) or Piper (`sudo apt install asl3-tts`), with a test, and the pronunciation dictionary |
 | **Weather** | The location for the weather variables (Open-Meteo) and, optionally, your Weather Underground station |
 | **Alerts** | Automatic weather, forecast and earthquake alerts: limits, hours, where they go out, examples |
+| **DTMF** (ASL) | Every DTMF code of the node: see, test, add, edit and delete; ASLSCAN shortcuts for weather, earthquakes and announcements |
 | **Telegram** | The bot (token, chat), who has it linked, and the alerts |
 | **Backup** | Automatic, download and restore, receive from other nodes |
 | **System** | Updates, equipment health, live audio, node info, IRLPvCON and the nodes panel |
@@ -106,6 +107,15 @@ Set your location in **Settings → Weather** (search the city, use 📍 My loca
 - **Forecast**: thunderstorm, heavy rain (mm in an hour + probability), gusts, heat or cold expected in the next hours; announced N minutes ahead (e.g. `120, 30`).
 - **Earthquakes** ([USGS](https://earthquake.usgs.gov), worldwide, keyless): nearby within a radius, regional within a bigger radius and, optionally, strong ones anywhere in the world. Only earthquakes from the last 30 minutes are announced, said a few times (e.g. twice, 10 min apart), at any hour.
 - They go through the same queue as the announcements, ahead of them, and wait for a clear channel; RF only or RF + Net. **Schedule → Alerts** shows the current reading against each limit, what the forecast brings, the earthquakes within your limits and the alerts sent, with **↻ Check now**. Settings has **▶ Listen** examples.
+
+### DTMF commands
+
+**Settings → DTMF** (AllStar nodes) lists every code the node answers to: those from the ASL template (`[functions-main]`) and your node's own section (e.g. `[functions59624]`), each one explained in plain words, with its script or comment, and marked when it's risky (restart Asterisk, autopatch) or clashes with another code.
+
+- **▶ Test** runs it as if it were dialed from the radio (`rpt fun`).
+- **＋ Add command**, ✏️ edit and 🗑 delete in your node's section: run a script, links, information, node operation, macro, play an audio file, autopatch. A code can't be the start of another one or the other way around (`*8` would clash with `*81`). Template codes aren't deleted; ✏️ puts the same code in your node with another function.
+- **ASLSCAN shortcuts**: a code for 🌤 *weather now*, another for 🌎 *recent earthquakes* (last 24 h, with the limits of Settings → Alerts) and, in each announcement's editor, a code that plays it. They go through the same queue and wait for a clear channel. ASLSCAN writes and keeps those lines (marked `; ASLSCAN`) and calls `bin/aslscan-dtmf`.
+- A copy of rpt.conf is saved before each change; Asterisk reads the codes when it restarts (**Apply**, as in Tones).
 
 ### Times from another time zone
 
@@ -202,6 +212,7 @@ ASLSCAN es el **Dashboard de [HAMNA Web](https://github.com/xe2mbe/hamna)** como
 | **Voz** | La voz de los anuncios: Azure (clave, región, voz, estilo, velocidad, tono), ElevenLabs (clave, voz, modelo) o Piper (`sudo apt install asl3-tts`), con prueba, y el diccionario de pronunciación |
 | **Clima** | La ubicación para las variables del clima (Open-Meteo) y, si quieres, tu estación de Weather Underground |
 | **Alertas** | Alertas automáticas de clima, pronóstico y sismos: límites, horario, por dónde salen, ejemplos |
+| **DTMF** (ASL) | Todos los códigos DTMF del nodo: ver, probar, agregar, editar y borrar; atajos de ASLSCAN para clima, sismos y anuncios |
 | **Telegram** | El bot (token, chat), quién lo tiene vinculado y los avisos |
 | **Respaldo** | Automático, descargar y restaurar, recibir de otros nodos |
 | **Sistema** | Actualizaciones, salud del equipo, audio en vivo, datos del nodo, IRLPvCON y el panel de nodos |
@@ -272,6 +283,15 @@ Pon tu ubicación en **Ajustes → Clima** (busca la ciudad, usa 📍 Mi ubicaci
 - **Pronóstico**: tormenta eléctrica, lluvia fuerte (mm en una hora + probabilidad), rachas, calor o frío que se esperan en las próximas horas; se avisa N minutos antes (p. ej. `120, 30`).
 - **Sismos** ([USGS](https://earthquake.usgs.gov), mundial y sin clave): cercanos dentro de un radio, de la región dentro de un radio mayor y, si quieres, los fuertes de cualquier parte del mundo. Solo se avisan los de hace menos de 30 minutos, se repiten unas veces (p. ej. 2, cada 10 min) y salen a cualquier hora.
 - Salen por la misma cola que los anuncios, antes que ellos, y esperan canal libre; solo RF o RF + Net. **Programación → Alertas** muestra la lectura contra cada límite, lo que trae el pronóstico, los sismos que cumplen tus límites y las alertas enviadas, con **↻ Revisar ahora**. En Ajustes hay ejemplos para **▶ Escuchar**.
+
+### Comandos DTMF
+
+**Ajustes → DTMF** (nodos AllStar) muestra todos los códigos que entiende el nodo: los de la plantilla de ASL (`[functions-main]`) y los de la sección de tu nodo (p. ej. `[functions59624]`), cada uno explicado en palabras, con su script o comentario, y marcado si es de cuidado (reiniciar Asterisk, autopatch) o si choca con otro código.
+
+- **▶ Probar** lo ejecuta como si lo marcaran desde el radio (`rpt fun`).
+- **＋ Agregar comando**, ✏️ editar y 🗑 borrar en la sección de tu nodo: ejecutar un script, enlaces, información, operación del nodo, macro, reproducir un audio, autopatch. Un código no puede ser el principio de otro ni al revés (`*8` chocaría con `*81`). Los de la plantilla no se borran; ✏️ pone el mismo código en tu nodo con otra función.
+- **Atajos de ASLSCAN**: un código para 🌤 *clima ahora*, otro para 🌎 *sismos recientes* (últimas 24 h, con los límites de Ajustes → Alertas) y, en el editor de cada anuncio, un código que lo transmite. Salen por la misma cola y esperan canal libre. ASLSCAN escribe y mantiene esas líneas (marcadas `; ASLSCAN`) y llama a `bin/aslscan-dtmf`.
+- Antes de cada cambio se guarda una copia de rpt.conf; Asterisk lee los códigos al reiniciarse (**Aplicar**, como en Tonos).
 
 ### Horas de otra zona horaria
 

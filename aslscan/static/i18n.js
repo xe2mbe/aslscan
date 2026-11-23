@@ -355,6 +355,10 @@
     "Flash v2.5 — más rápido, cuesta la mitad": "Flash v2.5 — faster, half the cost", "Turbo v2.5 — rápido, buena calidad": "Turbo v2.5 — fast, good quality",
     "Estabilidad (%)": "Stability (%)", "Parecido a la voz (%)": "Similarity (%)",
     "Más alto = más parejo; más bajo = más expresivo.": "Higher = steadier; lower = more expressive.",
+    // Ajustes → DTMF
+    "DTMF": "DTMF",
+    "Comandos DTMF": "DTMF commands",
+    "Los códigos que el nodo entiende cuando alguien los marca desde el radio (con * y el número). Están en rpt.conf: los de la plantilla de ASL no se borran, pero puedes poner el mismo código en tu nodo con otra función. Antes de cada cambio se guarda una copia de rpt.conf; Asterisk los lee al reiniciarse.": "The codes the node understands when someone dials them from the radio (with * and the number). They live in rpt.conf: the ASL template ones can't be deleted, but you can put the same code in your node with another function. A copy of rpt.conf is saved before each change; Asterisk reads them when it restarts.",
     // Ajustes → Alertas y Programación → Alertas
     "⚠ Alertas": "⚠ Alerts",
     "Alertas": "Alerts",

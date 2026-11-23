@@ -7,7 +7,7 @@ import logging
 import os
 import time
 
-from . import alertas, anuncios, autobackup, paths
+from . import alertas, anuncios, autobackup, dtmf, paths
 
 log = logging.getLogger("aslscan.tareas")
 
@@ -30,6 +30,11 @@ def _limpiar_tmp():
 
 def loop():
     ultimo_tmp = 0.0
+    try:
+        dtmf.carpeta()
+        dtmf.start()               # avisos de bin/aslscan-dtmf (cada segundo)
+    except Exception:
+        log.exception("No pude arrancar el DTMF")
     while True:
         try:
             autobackup.tick(dt.datetime.now())

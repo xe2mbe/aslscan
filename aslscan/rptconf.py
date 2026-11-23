@@ -237,6 +237,20 @@ def _respaldar():
     return dest
 
 
+def _escribir(texto):
+    """Escribe rpt.conf (con _lock tomado): guarda la configuración cargada en Asterisk, una copia
+    con fecha y cambia el archivo de un jalón. Devuelve la ruta de la copia."""
+    if not pendiente() or not os.path.exists(SEGURO):
+        shutil.copy2(RPT_CONF, SEGURO)  # lo que Asterisk tiene cargado: a esto se regresa si algo falla
+    copia = _respaldar()
+    tmp = RPT_CONF + ".aslscan-tmp"
+    with open(tmp, "w", encoding="utf-8", newline="") as f:
+        f.write(texto)
+    shutil.copymode(RPT_CONF, tmp)
+    os.replace(tmp, RPT_CONF)
+    return copia
+
+
 def guardar(cfg, tonos, uso, borrar=None, tiempos=None):
     """tonos: {ctN: [[f1,f2,ms,amp],…]}; uso: {unlinkedct: "ctN"|""}; borrar: [ctN] propios a quitar."""
     st = estado(cfg)
@@ -302,14 +316,7 @@ def guardar(cfg, tonos, uso, borrar=None, tiempos=None):
         secs = parse(texto)
         for nombre, txt in nuevos.items():
             assert _valor(secs, tel, nombre)[0] == txt, nombre
-        if not pendiente() or not os.path.exists(SEGURO):
-            shutil.copy2(RPT_CONF, SEGURO)  # lo que Asterisk tiene cargado: a esto se regresa si algo falla
-        copia = _respaldar()
-        tmp = RPT_CONF + ".aslscan-tmp"
-        with open(tmp, "w", encoding="utf-8", newline="") as f:
-            f.write(texto)
-        shutil.copymode(RPT_CONF, tmp)
-        os.replace(tmp, RPT_CONF)
+        copia = _escribir(texto)
     log.info("Tonos guardados en rpt.conf (copia anterior: %s): %s%s%s", os.path.basename(copia),
              ", ".join(sorted(nuevos)) or "-", "; quitados " + ", ".join(quitar) if quitar else "",
              ("; uso " + ", ".join("{}={}".format(k, v or "ninguno") for k, v in cambios_uso.items()) if cambios_uso else "") +
@@ -387,10 +394,10 @@ def aplicar(cfg, usuario):
 
     def work():
         try:
-            log.warning("%s reinicia Asterisk para aplicar los tonos", usuario)
+            log.warning("%s reinicia Asterisk para aplicar los cambios de rpt.conf", usuario)
             _reiniciar()
             if _nodo_arriba(nodo):
-                _aplicar.update(estado="ok", mensaje="Listo: Asterisk reinició con los tonos nuevos", t=time.time())
+                _aplicar.update(estado="ok", mensaje="Listo: Asterisk reinició con los cambios", t=time.time())
                 try:
                     os.remove(SEGURO)
                 except OSError:
@@ -406,7 +413,7 @@ def aplicar(cfg, usuario):
                 "El nodo no volvió con los cambios: se regresó la configuración anterior{}".format(
                     "" if ok else ", pero el nodo sigue sin aparecer; revisa Asterisk")))
         except Exception as e:
-            log.exception("Aplicar tonos")
+            log.exception("Aplicar cambios de rpt.conf")
             _aplicar.update(estado="error", mensaje=str(e), t=time.time())
     threading.Thread(target=work, daemon=True, name="aslscan-aplicar").start()
     return dict(_aplicar)

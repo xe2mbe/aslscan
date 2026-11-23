@@ -13,7 +13,7 @@ import time
 import uuid
 from pathlib import Path
 
-from . import VERSION, alertas, anuncios, auth, clima, horas, pronuncia, tz, autobackup, backends, backup, health, db, links, notify, paths, sessions, settings, sysmon, tts, updates
+from . import VERSION, alertas, anuncios, auth, clima, dtmf, horas, pronuncia, tz, autobackup, backends, backup, health, db, links, notify, paths, sessions, settings, sysmon, tts, updates
 from .live import live
 from .web import App, HTTPError, Response, jsonr, send_file
 
@@ -594,8 +594,24 @@ def _anuncio_req(req, aid=None):
     except ValueError:
         raise ValueError("Datos del anuncio inválidos")
     up = req.files.get("archivo")
-    return anuncios.guardar(datos, up.path if up else None, up.filename if up else "",
-                            req.user["usuario"], aid)
+    actual = anuncios.uno(aid) if aid else {}
+    # El código DTMF cambia rpt.conf: solo el administrador lo pone o lo quita
+    if req.user["rol"] != "admin" or "dtmf" not in datos:
+        datos["dtmf"] = actual.get("dtmf", "")
+    elif datos["dtmf"]:
+        datos["dtmf"] = dtmf.validar_atajo(datos["dtmf"], "anuncio:{}".format(aid or 0))
+    a = anuncios.guardar(datos, up.path if up else None, up.filename if up else "", req.user["usuario"], aid)
+    if (a.get("dtmf") or "") != (actual.get("dtmf") or "") or (a.get("dtmf") and a["nombre"] != actual.get("nombre")):
+        _dtmf_sync()
+    return a
+
+
+def _dtmf_sync():
+    try:
+        dtmf.sincronizar()
+    except Exception as e:
+        log.exception("DTMF")
+        raise ValueError("Se guardó, pero no pude escribir el código DTMF en rpt.conf: {}".format(e))
 
 
 @app.route("/api/anuncios")
@@ -615,8 +631,60 @@ def anuncios_editar(req, aid):
 
 @app.route("/api/anuncios/<int:aid>", ("DELETE",), rol="operador")
 def anuncios_borrar(req, aid):
+    tenia = (anuncios.uno(aid).get("dtmf") or "")
     anuncios.borrar(aid, req.user["usuario"])
+    if tenia:
+        _dtmf_sync()
     return ok()
+
+
+# ── Ajustes → DTMF ───────────────────────────────────────────────────────────
+@app.route("/api/dtmf", rol="admin")
+def dtmf_info(req):
+    return jsonr(dtmf.estado())
+
+
+@app.route("/api/dtmf", ("POST",), rol="admin")
+def dtmf_guardar(req):
+    b = req.json()
+    st = dtmf.guardar_comando(b.get("codigo"), b.get("tipo"), b.get("args"), b.get("comentario", ""), b.get("antes", ""))
+    log.info("%s guardó el DTMF *%s", req.user["usuario"], dtmf.normalizar_codigo(b.get("codigo")))
+    return ok(estado=st)
+
+
+@app.route("/api/dtmf/<codigo>", ("DELETE",), rol="admin")
+def dtmf_borrar(req, codigo):
+    st = dtmf.borrar_comando(codigo)
+    log.info("%s borró el DTMF *%s", req.user["usuario"], codigo)
+    return ok(estado=st)
+
+
+@app.route("/api/dtmf/probar", ("POST",), rol="admin")
+def dtmf_probar(req):
+    c = req.json().get("codigo")
+    log.info("%s probó el DTMF *%s", req.user["usuario"], c)
+    return ok(salida=dtmf.probar(c))
+
+
+@app.route("/api/dtmf/atajos", ("POST",), rol="admin")
+def dtmf_atajos(req):
+    b = req.json()
+    cfg = settings.load()
+    upd = {"dtmf_clima": dtmf.validar_atajo(b.get("clima", ""), "clima", cfg),
+           "dtmf_sismos": dtmf.validar_atajo(b.get("sismos", ""), "sismos", cfg)}
+    if upd["dtmf_clima"] and upd["dtmf_clima"] == upd["dtmf_sismos"]:
+        raise ValueError("Clima y sismos no pueden tener el mismo código")
+    if upd["dtmf_clima"] and upd["dtmf_sismos"] and dtmf._conflicto(upd["dtmf_clima"], [upd["dtmf_sismos"]]):
+        raise ValueError("Los códigos de clima y sismos chocan entre sí")
+    settings.save(upd)
+    _dtmf_sync()
+    return ok(estado=dtmf.estado())
+
+
+@app.route("/api/dtmf/aplicar", ("POST",), rol="admin")
+def dtmf_aplicar(req):
+    from . import rptconf
+    return ok(aplicando=rptconf.aplicar(settings.load(), req.user["usuario"]))
 
 
 @app.route("/api/anuncios/<int:aid>/activo", ("POST",), rol="operador")

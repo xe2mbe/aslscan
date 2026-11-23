@@ -459,7 +459,7 @@ function showSet(k) {
       b.scrollIntoView({ block: "nearest", inline: "nearest" });
   });
   $$("#setForm fieldset").forEach((f) => f.classList.toggle("hidden", f.dataset.set !== k));
-  $("#saveBar").classList.toggle("hidden", ["sistema", "usuarios", "tonos"].includes(k) || (k === "respaldo" && S.bkSub === "manual"));
+  $("#saveBar").classList.toggle("hidden", ["sistema", "usuarios", "tonos", "dtmf"].includes(k) || (k === "respaldo" && S.bkSub === "manual"));
   if (k === "sistema") loadSistema();
   if (k === "respaldo") loadRespaldo();
   if (k === "usuarios") loadUsers();
@@ -468,6 +468,7 @@ function showSet(k) {
   if (k === "voz") { loadVoz(); loadPron(); }
   if (k === "clima") loadClima();
   if (k === "alertas") loadAlertasSet();
+  if (k === "dtmf") loadDtmf();
   if (k === "sistema") loadHubSt();
 }
 async function loadBotSt() {
@@ -507,6 +508,8 @@ async function loadAjustes() {
   applyLogo(S.logo);
   const esAsl = (S.cfg.backend && S.cfg.backend !== "auto" ? S.cfg.backend : info.detectado) === "asl";
   $("#setNavTonos").classList.toggle("hidden", !esAsl);
+  $("#setNavDtmf").classList.toggle("hidden", !esAsl);
+  if (!esAsl && S.setSec === "dtmf") S.setSec = "nodo";
   if (!esAsl && S.setSec === "tonos") S.setSec = "nodo";
   showSet(S.setSec);
 }
@@ -2146,7 +2149,7 @@ const AN_PLANTILLAS = [
     texto: "{saludo}. Reporte del clima en {lugar}: {condicion}. Temperatura de {temperatura}, sensación térmica de {sensacion}. Humedad del {humedad}. Viento {viento}. {pronostico}",
     modo: "cada", cada_min: 60, desde_h: "07:47", hasta_h: "21:47" },
 ];
-const anDetalle = (t) => LG(t, String(t || "").replace(/^manual · /, "manual · ").replace(/^alerta · /, "alert · ").replace("solo este nodo", "this node only").replace("nodo y enlaces", "node and links")
+const anDetalle = (t) => LG(t, String(t || "").replace(/^manual · /, "manual · ").replace(/^alerta · /, "alert · ").replace(/^DTMF · /, "DTMF · ").replace("solo este nodo", "this node only").replace("nodo y enlaces", "node and links")
   .replace(/^El canal estuvo ocupado (\d+) min$/, "The channel was busy for $1 min")
   .replace(/^Los anuncios solo salen en nodos AllStar.*$/, "Announcements only go out on AllStar nodes with a node number (Settings → Node)")
   .replace(/^Falta el audio del anuncio.*$/, "The announcement's audio is missing; edit it and save it again"));
@@ -2220,7 +2223,7 @@ function renderAnuncios() {
       <div class="an-top"><h3 translate="no">📢 ${esc(a.nombre)}</h3>
         ${puede ? `<label class="switch" title="${a.activo ? LG("Activo: clic para pausarlo", "Active: click to pause it") : LG("Pausado: clic para activarlo", "Paused: click to activate it")}"><input type="checkbox" data-anon="${a.id}" ${a.activo ? "checked" : ""}><span></span></label>`
           : `<span class="chip ${a.activo ? "ok" : ""}">${a.activo ? LG("Activo", "Active") : LG("Pausado", "Paused")}</span>`}</div>
-      <div class="an-via">${anVia(a)}</div>
+      <div class="an-via">${anVia(a)}${a.dtmf ? ` <span class="chip" title="${LG("Se dispara marcando este código", "Dialing this code plays it")}">☎ *${esc(a.dtmf)}</span>` : ""}</div>
       <div class="an-que">${a.tipo === "tts" ? `🗣 <span translate="no">«${esc(a.texto.length > 140 ? a.texto.slice(0, 140) + "…" : a.texto)}»</span>` : `🎵 <span translate="no">${esc(a.archivo_nombre || "audio.wav")}</span>`}<span class="an-dur">${fmt(a.duracion)}</span></div>
       <div class="meta">${esc(anCuandoTxt(a))}</div>
       <div class="meta">${enCola === "al_aire" ? "📡 " + LG("Al aire ahora", "On air now") : enCola ? "⏳ " + LG("Esperando canal libre", "Waiting for a clear channel")
@@ -2378,6 +2381,9 @@ function anuncioEditor(a) {
       <small class="muted hidden" id="anRedAviso">⚠ ${LG("Se oye en todos los nodos conectados en ese momento.", "It's heard on every node connected at that moment.")}</small>
       <small class="muted an-hint" id="anDondeNota" data-ver="horas">ⓘ ${LG("En «A estas horas» esto pone todas las horas igual; después cambia arriba la que deba ser distinta. También es lo que se marca primero en «Transmitir ahora».", "In «At these times» this sets every time the same; then change above the one that should be different. It's also what's preselected in «Transmit now».")}</small>
     </div>
+    ${isAdmin() && d.asl ? `<div class="an-sec"><b>☎ DTMF</b>
+      <div class="row gap wrap"><div class="dtmf-cod"><span>*</span><input name="dtmf" value="${esc(a.dtmf || "")}" maxlength="8" placeholder="${LG("sin código", "no code")}" spellcheck="false" autocapitalize="characters"></div>
+        <small class="muted">${LG("Marcando este código desde el radio sale el anuncio (espera canal libre). Se escribe en rpt.conf y funciona después de aplicar en Ajustes → DTMF.", "Dialing this code from the radio plays the announcement (it waits for a clear channel). It's written to rpt.conf and works after applying in Settings → DTMF.")}</small></div></div>` : ""}
     <p class="muted an-nota">ⓘ ${LG(`Si alguien está hablando, espera hasta ${d.espera_min} min a que se libere el canal; si no se libera, ese turno se salta y queda en la bitácora.`, `If someone is talking, it waits up to ${d.espera_min} min for the channel to clear; if it doesn't, that slot is skipped and logged.`)}</p>
     <div class="modal-actions"><button type="button" class="btn" id="anCancel">${LG("Cancelar", "Cancel")}</button><button class="btn primary" id="anSave">${LG("Guardar", "Save")}</button></div>
   </form>`);
@@ -2515,12 +2521,14 @@ function anuncioEditor(a) {
       vig_desde: f.vig_desde.value, vig_hasta: f.vig_hasta.value, destino: f.destino.value, activo: a.activo,
       evento_id: f.evento_id ? f.evento_id.value : 0, antes: ed.antes,
     };
+    if (f.dtmf) datos.dtmf = f.dtmf.value.trim().replace(/^\*/, "").toUpperCase();
     const fd = new FormData();
     fd.append("datos", JSON.stringify(datos));
     if (ed.tipo === "audio" && ed.archivo) fd.append("archivo", ed.archivo, ed.archivo.name);
     const b = $("#anSave"); busy(b, true, ed.tipo === "tts" ? LG("Generando voz…", "Generating voice…") : LG("Guardando…", "Saving…"));
     try {
       await run(() => api(nuevo ? "api/anuncios" : "api/anuncios/" + a.id, { method: nuevo ? "POST" : "PUT", form: fd }), LG("Anuncio guardado", "Announcement saved"));
+      if (f.dtmf && (datos.dtmf || "") !== (a.dtmf || "")) toast(LG("Código DTMF guardado en rpt.conf: aplica los cambios en Ajustes → DTMF para que funcione", "DTMF code saved to rpt.conf: apply the changes in Settings → DTMF for it to work"));
       closeModal(); loadProg();
     } catch {} finally { busy(b, false); }
   };
@@ -2721,6 +2729,182 @@ $("#btnAlEj").onclick = async () => {
     const au = $("#alEjAudio"); au.src = r.url; au.classList.remove("hidden"); au.play().catch(() => {});
   } catch (e) { toast(e.message, true); } finally { busy(b, false); }
 };
+
+/* ── Ajustes → DTMF (funciones de rpt.conf) ──────────────────────────────── */
+const DTMF_TIPOS = [["cmd", "Ejecutar un comando o script", "Run a command or script"], ["ilink", "Enlaces (conectar, desconectar…)", "Links (connect, disconnect…)"],
+  ["status", "Información (ID, hora, versión…)", "Information (ID, time, version…)"], ["cop", "Operación del nodo", "Node operation"],
+  ["macro", "Macro", "Macro"], ["localplay", "Reproducir un audio (solo local)", "Play an audio file (local only)"],
+  ["playback", "Reproducir un audio (también a los enlaces)", "Play an audio file (also to links)"],
+  ["autopatchup", "Autopatch: descolgar", "Autopatch: off hook"], ["autopatchdn", "Autopatch: colgar", "Autopatch: hang up"], ["remote", "Base remota", "Remote base"]];
+const DTMF_EN = {
+  "Desconecta un enlace (marca después el número de nodo)": "Disconnects a link (dial the node number after it)", "Conecta un nodo solo en monitor (marca después el número)": "Connects a node in monitor only (dial the number after it)",
+  "Conecta un nodo en transceptor (marca después el número)": "Connects a node in transceive (dial the number after it)", "Entra al modo de comandos de un enlace": "Enters command mode on a link",
+  "Dice el estado del sistema (enlaces)": "Says the system status (links)", "Desconecta todos los enlaces": "Disconnects all links", "Dice el último nodo que transmitió": "Says the last node that keyed up",
+  "Conecta un nodo en monitor local (marca después el número)": "Connects a node in local monitor (dial the number after it)", "Dice el estado completo (todos los nodos)": "Says the full status (all nodes)",
+  "Identificación (a toda la red)": "ID (whole network)", "Dice la hora (a toda la red)": "Says the time (whole network)", "Dice la versión (a toda la red)": "Says the version (whole network)",
+  "Identificación (solo local)": "ID (local only)", "Dice la hora (solo local)": "Says the time (local only)", "Dice la versión (solo local)": "Says the version (local only)",
+  "Dice el último usuario de DTMF (a toda la red)": "Says the last DTMF user (whole network)", "Dice la ubicación GPS (a toda la red)": "Says the GPS location (whole network)",
+  "Descuelga el autopatch (llamada telefónica)": "Autopatch off hook (phone call)", "Cuelga el autopatch": "Autopatch hang up", "Loro una vez (graba y repite)": "Parrot once (records and repeats)",
+  "Macro (marca después el número de la macro)": "Macro (dial the macro number after it)",
+  "Manda un mensaje de texto": "Sends a text message",
+  "Desconecta los enlaces RANGER": "Disconnects RANGER links",
+  "Desconecta un enlace permanente (marca después el número)": "Disconnects a permanent link (dial the number after it)",
+  "Conecta permanente en monitor (marca después el número)": "Permanently connects in monitor (dial the number after it)",
+  "Conecta permanente en transceptor (marca después el número)": "Permanently connects in transceive (dial the number after it)",
+  "Reconecta los enlaces que se desconectaron con «desconectar todos»": "Reconnects the links dropped with «disconnect all»",
+  "Conecta permanente en monitor local (marca después el número)": "Permanently connects in local monitor (dial the number after it)",
+  "Dice la ubicación GPS (solo local)": "Says the GPS location (local only)",
+  "Dice el último usuario de DTMF (solo local)": "Says the last DTMF user (local only)",
+  "Reinicio del sistema (warm boot)": "System warm boot",
+  "Habilita el sistema": "Enables the system",
+  "Deshabilita el sistema": "Disables the system",
+  "Tono de prueba (prende/apaga)": "Test tone (on/off)",
+  "Muestra las variables del sistema": "Dumps system variables",
+  "PTT (modo teléfono)": "PTT (phone mode)",
+  "Habilita el límite de tiempo de transmisión": "Enables the time-out timer",
+  "Deshabilita el límite de tiempo de transmisión": "Disables the time-out timer",
+  "Habilita el autopatch": "Enables autopatch",
+  "Deshabilita el autopatch": "Disables autopatch",
+  "Habilita los enlaces": "Enables links",
+  "Deshabilita los enlaces": "Disables links",
+  "Dice el estado del sistema": "Says the system state",
+  "Cambia el estado del sistema": "Changes the system state",
+  "Habilita el programador": "Enables the scheduler",
+  "Deshabilita el programador": "Disables the scheduler",
+  "Habilita las funciones de usuario": "Enables user functions",
+  "Deshabilita las funciones de usuario": "Disables user functions",
+  "Cola de transmisión alterna": "Alternate hang time",
+  "Cola de transmisión normal": "Standard hang time",
+  "Habilita el loro (parrot)": "Enables parrot",
+  "Deshabilita el loro (parrot)": "Disables parrot",
+  "Loro una vez": "Parrot once",
+  "Vacía la cola de telemetría": "Flushes the telemetry queue",
+  "Prueba de tonos DTMF": "DTMF touch-tone test",
+  "Deshabilita la telemetría local": "Disables local telemetry",
+  "Habilita la telemetría local": "Enables local telemetry",
+  "Telemetría local apagada": "Local telemetry off",
+  "Telemetría local encendida": "Local telemetry on",
+  "Anuncio de EchoLink": "EchoLink announcement",
+  "No acepta conexiones entrantes": "Refuses incoming connections",
+  "Acepta conexiones entrantes": "Accepts incoming connections",
+  "Atajo de ASLSCAN": "ASLSCAN shortcut",
+  "Dice la ubicación GPS (a toda la red)": "Says the GPS location (whole network)",
+};
+const dtmfQue = (t) => LG(t, DTMF_EN[t] || t.replace(/^Ejecuta /, "Runs ").replace(/^Reproduce el audio /, "Plays ").replace(/^Ejecuta la macro /, "Runs macro "));
+async function loadDtmf() {
+  const box = $("#dtmfBox");
+  let st;
+  try { st = await api("api/dtmf"); } catch (e) { box.innerHTML = `<p class="muted">${esc(e.message)}</p>`; return; }
+  S.dtmf = st; renderDtmf();
+  if (st.aplicando && st.aplicando.estado === "aplicando") setTimeout(() => { if (S.setSec === "dtmf") loadDtmf(); }, 3000);
+}
+function renderDtmf() {
+  const box = $("#dtmfBox"), st = S.dtmf;
+  if (!st.disponible) { box.innerHTML = `<p class="muted">${esc(st.motivo || "")}</p>`; return; }
+  const ap = st.aplicando || {}, fc = st.funcchar || "*";
+  let h = "";
+  if (ap.estado === "aplicando") h += `<div class="upd-box new"><b>⏳ ${esc(ap.mensaje)}</b><div class="muted" style="font-size:.84rem">${LG("Los enlaces se cortan unos segundos y se reconectan solos.", "Links drop for a few seconds and reconnect by themselves.")}</div></div>`;
+  else if (st.pendiente) h += `<div class="upd-box new"><div class="upd-head"><div><b>⚠ ${LG("Hay cambios guardados en rpt.conf que todavía no se aplican", "There are saved changes in rpt.conf not applied yet")}</b>
+      <div class="muted" style="font-size:.84rem">${LG("Los códigos nuevos funcionan cuando Asterisk se reinicia. Los enlaces se cortan unos segundos y se reconectan solos.", "New codes work once Asterisk restarts. Links drop for a few seconds and reconnect by themselves.")}</div></div>
+      ${st.puede_aplicar ? `<button type="button" class="btn sm primary" id="btnDtmfAplicar">${LG("Aplicar ahora (reinicia Asterisk)", "Apply now (restarts Asterisk)")}</button>` : `<span class="muted">${LG("Reinicia Asterisk desde la terminal: sudo systemctl restart asterisk", "Restart Asterisk from the terminal: sudo systemctl restart asterisk")}</span>`}</div></div>`;
+  else if (ap.estado === "ok" || ap.estado === "error") h += `<div class="upd-box${ap.estado === "error" ? " new" : ""}"><b>${ap.estado === "ok" ? "✅" : "❌"} ${esc(ap.mensaje)}</b></div>`;
+  const notas = [];
+  if (st.link_functions === st.seccion) notas.push(LG("Estos códigos también se pueden marcar desde un nodo enlazado (link_functions usa la misma sección).", "These codes can also be dialed from a linked node (link_functions uses the same section)."));
+  if (st.compartida.length) notas.push(LG(`La sección [${st.seccion}] también la usa el nodo ${st.compartida.join(", ")}: los cambios valen para todos.`, `Section [${st.seccion}] is also used by node ${st.compartida.join(", ")}: changes apply to all of them.`));
+  h += `<p class="muted dtmf-sec">${LG("Sección del nodo", "Node section")}: <code translate="no">[${esc(st.seccion)}]</code>${st.plantillas.length ? ` · ${LG("plantilla", "template")}: <code translate="no">[${st.plantillas.map(esc).join("], [")}]</code>` : ""}${notas.length ? "<br>ⓘ " + notas.join("<br>ⓘ ") : ""}</p>`;
+  // Atajos de ASLSCAN
+  const at = st.atajos || {};
+  h += `<div class="card dtmf-atajos"><h3>☎ ${LG("Atajos de ASLSCAN", "ASLSCAN shortcuts")}</h3>
+    <div class="grid2"><label>🌤 ${LG("Clima ahora (reporte del clima)", "Weather now (weather report)")}<div class="dtmf-cod"><span>${esc(fc)}</span><input id="dtmfClima" value="${esc(at.clima || "")}" maxlength="8" placeholder="${LG("sin código", "no code")}" spellcheck="false" autocapitalize="characters"></div></label>
+      <label>🌎 ${LG("Sismos recientes (últimas 24 h)", "Recent earthquakes (last 24 h)")}<div class="dtmf-cod"><span>${esc(fc)}</span><input id="dtmfSismos" value="${esc(at.sismos || "")}" maxlength="8" placeholder="${LG("sin código", "no code")}" spellcheck="false" autocapitalize="characters"></div></label></div>
+    <div class="row gap wrap"><button type="button" class="btn sm primary" id="btnDtmfAtajos">${LG("Guardar atajos", "Save shortcuts")}</button>
+      <small class="muted">${LG("Los sismos usan los límites de Ajustes → Alertas. Un anuncio recibe su código en su editor (Programación → Anuncios).", "Earthquakes use the limits in Settings → Alerts. An announcement gets its code in its editor (Schedule → Announcements).")}</small></div>
+    ${(at.anuncios || []).length ? `<p class="muted dtmf-an">📢 ${at.anuncios.map((a) => `<b>${esc(fc + a.dtmf)}</b> <span translate="no">${esc(a.nombre)}</span>`).join(" · ")}</p>` : ""}</div>`;
+  // Tabla
+  const q = (S.dtmfQ || "").toLowerCase();
+  const filas = st.comandos.filter((c) => !q || (c.codigo + " " + c.que + " " + c.valor + " " + c.comentario).toLowerCase().includes(q));
+  h += `<div class="row gap wrap dtmf-barra"><input id="dtmfBuscar" placeholder="${LG("Buscar código o función…", "Search code or function…")}" value="${esc(S.dtmfQ || "")}"><button type="button" class="btn sm primary" id="btnDtmfNuevo">＋ ${LG("Agregar comando", "Add command")}</button></div>
+    <div class="dtmf-lista">${filas.map((c) => `<div class="dtmf-fila ${c.propio ? "propio" : ""}">
+      <div class="dtmf-codigo" translate="no">${esc(fc + c.codigo)}</div>
+      <div class="dtmf-que"><b>${esc(dtmfQue(c.que))}</b>
+        <div class="muted" translate="no"><code>${esc(c.valor)}</code>${c.comentario && !c.aslscan ? " · " + esc(c.comentario) : ""}</div>
+        <div class="dtmf-chips">${c.aslscan ? `<span class="chip asl">ASLSCAN</span>` : c.propio ? `<span class="chip ok">${LG("este nodo", "this node")}</span>` : `<span class="chip">${LG("plantilla", "template")}</span>`}
+          ${c.reemplaza ? `<span class="chip warn" title="${esc(c.reemplaza)}">${LG("reemplaza a la plantilla", "overrides the template")}</span>` : ""}
+          ${c.cuidado ? `<span class="chip warn">⚠ ${LG("con cuidado", "careful")}</span>` : ""}
+          ${c.choca ? `<span class="chip warn">⚠ ${LG("choca con", "clashes with")} ${esc(fc + c.choca)}</span>` : ""}</div></div>
+      <div class="dtmf-acc"><button type="button" class="btn sm" data-dprobar="${esc(c.codigo)}" title="${LG("Ejecutarlo como si lo marcaran desde el radio", "Run it as if dialed from the radio")}">▶ ${LG("Probar", "Test")}</button>
+        ${c.propio && !c.aslscan ? `<button type="button" class="btn sm" data-deditar="${esc(c.codigo)}" title="${LG("Editar", "Edit")}">✏️</button><button type="button" class="btn sm ghost" data-dborrar="${esc(c.codigo)}" title="${LG("Borrar", "Delete")}">🗑</button>`
+          : !c.propio ? `<button type="button" class="btn sm ghost" data-dreemplazar="${esc(c.codigo)}" title="${LG("Poner otra función con este código en tu nodo", "Put another function with this code in your node")}">✏️</button>` : ""}</div></div>`).join("") || `<p class="muted">${LG("Nada coincide.", "Nothing matches.")}</p>`}</div>`;
+  const foco = document.activeElement && document.activeElement.id === "dtmfBuscar";
+  box.innerHTML = h;
+  if (foco) { const i = $("#dtmfBuscar"); i.focus(); i.selectionStart = i.selectionEnd = i.value.length; }
+}
+function dtmfEditor(c, reemplazar) {
+  const st = S.dtmf, fc = st.funcchar || "*", nuevo = !c || reemplazar;
+  const partes = c ? c.valor.split(",") : ["cmd"], tipo0 = (partes[0] || "cmd").toLowerCase(), args0 = partes.slice(1).join(",");
+  const cat = st.catalogo || {};
+  openModal(reemplazar ? LG(`Cambiar ${fc}${c.codigo} en tu nodo`, `Change ${fc}${c.codigo} in your node`) : nuevo ? LG("Agregar comando DTMF", "Add DTMF command") : LG(`Editar ${fc}${c.codigo}`, `Edit ${fc}${c.codigo}`), `<form id="dtmfForm" autocomplete="off">
+    ${reemplazar ? `<p class="muted">${LG(`En la plantilla [${esc(c.origen)}] ${fc}${esc(c.codigo)} hace: «${esc(dtmfQue(c.que))}». Lo que pongas aquí lo reemplaza solo en tu nodo; la plantilla no se toca.`, `In template [${esc(c.origen)}] ${fc}${esc(c.codigo)} does: «${esc(dtmfQue(c.que))}». What you put here replaces it only in your node; the template isn't touched.`)}</p>` : ""}
+    <label>${LG("Código", "Code")}<div class="dtmf-cod"><span>${esc(fc)}</span><input name="codigo" value="${esc(c ? c.codigo : "")}" maxlength="8" required spellcheck="false" autocapitalize="characters" ${reemplazar ? "readonly" : ""}></div><small>${LG("Teclas 0-9 y A-D, hasta 8. No puede ser el principio de otro código ni al revés (*8 chocaría con *81).", "Keys 0-9 and A-D, up to 8. It can't be the start of another code or the other way around (*8 would clash with *81).")}</small></label>
+    <label>${LG("Qué hace", "What it does")}<select name="tipo">${DTMF_TIPOS.map(([v, es, en]) => `<option value="${v}" ${v === tipo0 ? "selected" : ""}>${esc(LG(es, en))}</option>`).join("")}</select></label>
+    <div id="dtmfArgs"></div>
+    <label>${LG("Comentario (opcional)", "Comment (optional)")}<input name="comentario" maxlength="120" value="${esc(c && !reemplazar ? c.comentario : "")}"></label>
+    <div class="modal-actions"><button type="button" class="btn" id="dtmfCancel">${LG("Cancelar", "Cancel")}</button><button class="btn primary">${LG("Guardar en rpt.conf", "Save to rpt.conf")}</button></div></form>`);
+  const f = $("#dtmfForm");
+  const pinta = (tipo, args) => {
+    const opts = cat[tipo];
+    let html;
+    if (opts) {
+      const num = (args || "").split(",")[0];
+      html = `<label>${LG("Función", "Function")}<select name="args">${Object.entries(opts).map(([k, v]) => `<option value="${k}" ${k === num ? "selected" : ""}>${tipo} ${k} · ${esc(dtmfQue(v))}</option>`).join("")}
+        ${num && !opts[num] ? `<option value="${esc(args)}" selected>${esc(args)}</option>` : ""}</select></label>`;
+    } else if (tipo === "cmd") html = `<label>${LG("Comando o script", "Command or script")}<input name="args" value="${esc(args || "")}" placeholder="/usr/local/sbin/saytime.pl ${esc(st.nodo)}" spellcheck="false"><small>${LG("Se ejecuta con el usuario de Asterisk. Sin «;».", "It runs as the Asterisk user. No «;».")}</small></label>`;
+    else if (tipo === "localplay" || tipo === "playback") html = `<label>${LG("Audio (ruta sin extensión)", "Audio (path without extension)")}<input name="args" value="${esc(args || "")}" placeholder="/var/lib/asterisk/sounds/custom/aviso" spellcheck="false"></label>`;
+    else html = `<label>${LG("Opciones (opcional)", "Options (optional)")}<input name="args" value="${esc(args || "")}" spellcheck="false"></label>`;
+    $("#dtmfArgs").innerHTML = html;
+  };
+  pinta(tipo0, args0);
+  f.tipo.onchange = () => pinta(f.tipo.value, "");
+  $("#dtmfCancel").onclick = closeModal;
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const r = await run(() => api("api/dtmf", { method: "POST", json: { codigo: f.codigo.value, tipo: f.tipo.value, args: f.args ? f.args.value : "",
+        comentario: f.comentario.value, antes: c && !reemplazar ? c.codigo : "" } }), LG("Guardado en rpt.conf", "Saved to rpt.conf"));
+      closeModal(); S.dtmf = r.estado; renderDtmf();
+    } catch {}
+  };
+}
+$("#dtmfBox").addEventListener("input", (e) => { if (e.target.id === "dtmfBuscar") { S.dtmfQ = e.target.value; renderDtmf(); } });
+$("#dtmfBox").addEventListener("click", async (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  const st = S.dtmf, fc = st.funcchar || "*", cod = b.dataset.dprobar || b.dataset.deditar || b.dataset.dborrar || b.dataset.dreemplazar;
+  const c = st.comandos.find((x) => x.codigo === cod);
+  if (b.id === "btnDtmfNuevo") return dtmfEditor(null);
+  if (b.dataset.deditar) return dtmfEditor(c);
+  if (b.dataset.dreemplazar) return dtmfEditor(c, true);
+  if (b.dataset.dborrar) {
+    if (!(await confirmBox(LG(`¿Borrar ${fc}${cod} («${dtmfQue(c.que)}») de rpt.conf? Se guarda una copia antes.`, `Delete ${fc}${cod} («${dtmfQue(c.que)}») from rpt.conf? A copy is saved first.`), LG("Borrar", "Delete")))) return;
+    try { const r = await run(() => api("api/dtmf/" + encodeURIComponent(cod), { method: "DELETE" }), LG("Borrado de rpt.conf", "Deleted from rpt.conf")); S.dtmf = r.estado; renderDtmf(); } catch {}
+    return;
+  }
+  if (b.dataset.dprobar) {
+    if (!(await confirmBox(LG(`Se va a ejecutar ${fc}${cod} («${dtmfQue(c.que)}») como si lo marcaran desde el radio${c.cuidado ? ". ⚠ Este comando puede afectar el nodo" : ""}. Si es nuevo y no has aplicado los cambios, Asterisk todavía no lo conoce. ¿Continuar?`,
+      `${fc}${cod} («${dtmfQue(c.que)}») will run as if dialed from the radio${c.cuidado ? ". ⚠ This command can affect the node" : ""}. If it's new and you haven't applied the changes, Asterisk doesn't know it yet. Continue?`), LG("Ejecutar", "Run")))) return;
+    try { await run(() => api("api/dtmf/probar", { method: "POST", json: { codigo: cod } }), LG(`${fc}${cod} enviado al nodo`, `${fc}${cod} sent to the node`)); } catch {}
+    return;
+  }
+  if (b.id === "btnDtmfAtajos") {
+    try { const r = await run(() => api("api/dtmf/atajos", { method: "POST", json: { clima: $("#dtmfClima").value, sismos: $("#dtmfSismos").value } }), LG("Atajos guardados", "Shortcuts saved")); S.dtmf = r.estado; renderDtmf(); } catch {}
+    return;
+  }
+  if (b.id === "btnDtmfAplicar") {
+    if (!(await confirmBox(LG("Se va a reiniciar Asterisk para que tome los comandos DTMF. Los enlaces se cortan unos segundos y se reconectan solos. Si el nodo no vuelve, se regresa la configuración anterior. ¿Continuar?",
+      "Asterisk will restart to load the DTMF commands. Links drop for a few seconds and reconnect by themselves. If the node doesn't come back, the previous configuration is restored. Continue?"), LG("Reiniciar Asterisk", "Restart Asterisk")))) return;
+    try { await api("api/dtmf/aplicar", { method: "POST" }); } catch (err) { return toast(err.message, true); }
+    loadDtmf();
+  }
+});
 
 const PRON_VOZ = "api/anuncios/voz";      // dónde se oye la prueba
 /* ── Ajustes → Voz: diccionario de pronunciación ─────────────────────────────

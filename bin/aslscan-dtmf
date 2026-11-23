@@ -1,0 +1,12 @@
+#!/bin/sh
+# ASLSCAN — lo llama Asterisk (app_rpt) cuando alguien marca un código DTMF de ASLSCAN.
+# rpt.conf:  91 = cmd,/opt/aslscan/bin/aslscan-dtmf anuncio 3     ; ASLSCAN ...
+# Solo deja un aviso en la carpeta de ASLSCAN; el servicio lo toma en un segundo
+# y pone el anuncio (o el clima, o los sismos) en la cola, esperando canal libre.
+D="${ASLSCAN_DATA:-/var/lib/aslscan}/dtmf"
+[ -d "$D" ] || exit 0
+case "$1" in anuncio|clima|sismos) ;; *) exit 0 ;; esac
+ARG=$(printf '%s' "${2:-0}" | tr -cd '0-9')
+F="$D/$(date +%s)-$$"
+printf '%s %s\n' "$1" "${ARG:-0}" > "$F.tmp" 2>/dev/null && mv "$F.tmp" "$F.req"
+exit 0

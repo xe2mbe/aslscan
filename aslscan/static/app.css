@@ -1178,3 +1178,24 @@ textarea.pron-ta { position: relative; background: transparent !important; displ
 #alSinUbic { color: var(--warn); }
 .al-ej { margin-top: 14px; }
 .al-ej select { width: auto; }
+
+/* DTMF */
+.dtmf-sec { font-size: .86rem; }
+.dtmf-atajos { margin-bottom: 14px; }
+.dtmf-atajos h3 { margin: 0 0 8px; font-size: 1rem; }
+.dtmf-an { margin: 8px 0 0; font-size: .86rem; }
+.dtmf-cod { display: flex; align-items: center; gap: 6px; }
+.dtmf-cod span { font-weight: 800; font-size: 1.1rem; color: var(--accent); }
+.dtmf-cod input { width: 9em; font-family: ui-monospace, monospace; text-transform: uppercase; }
+.dtmf-barra { margin: 4px 0 10px; }
+.dtmf-barra input { flex: 1; min-width: 180px; }
+.dtmf-lista { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.dtmf-fila { display: grid; grid-template-columns: 76px 1fr auto; gap: 10px; align-items: start; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+.dtmf-fila:last-child { border-bottom: 0; }
+.dtmf-fila.propio { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.dtmf-codigo { font-family: ui-monospace, monospace; font-weight: 800; font-size: 1.05rem; padding-top: 2px; }
+.dtmf-que b { font-weight: 600; }
+.dtmf-que .muted { font-size: .8rem; overflow-wrap: anywhere; }
+.dtmf-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.dtmf-acc { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 640px) { .dtmf-fila { grid-template-columns: 60px 1fr; } .dtmf-acc { grid-column: 1 / -1; justify-content: flex-start; } }

@@ -329,6 +329,36 @@ def texto_sismo(s, nivel, dist, cfg):
     return "Aviso de sismo: se registró un sismo de magnitud {}, {}, {}, hora local.".format(_mag(s["mag"]), donde, cuando)
 
 
+def texto_sismos_recientes(cfg, horas_atras=24, maximo=3):
+    """Para el DTMF «sismos recientes»: los últimos que cumplen los límites de Ajustes → Alertas."""
+    try:
+        lista = _usgs()
+    except RuntimeError as e:
+        return "No pude consultar los sismos recientes: {}.".format(e)
+    desde = time.time() - horas_atras * 3600
+    hallados = []
+    for s in sorted(lista, key=lambda x: -x["t"]):
+        if s["t"] < desde:
+            continue
+        nivel, dist = clasificar_sismo(s, cfg)
+        if nivel:
+            hallados.append((s, nivel, dist))
+    if not hallados:
+        return "No hay sismos en las últimas {} horas que cumplan los límites de este nodo.".format(horas_atras)
+    partes = []
+    hoy = dt.date.today()
+    for s, nivel, dist in hallados[:maximo]:
+        t = dt.datetime.fromtimestamp(s["t"])
+        ub = clima.ubicacion(cfg)
+        donde = lugar_usgs(s["lugar"]) if (nivel == "mundo" or not ub) else "a {} kilómetros al {} de {}".format(
+            clima._n(dist), _rumbo_hacia(ub[0], ub[1], s["lat"], s["lon"]), _lugar(cfg))
+        partes.append("magnitud {}, {}, {}{}".format(_mag(s["mag"]), donde, "hoy " if t.date() == hoy else "ayer ", a_las(t)))
+    total = len(hallados)
+    return "Sismos recientes: {} en las últimas {} horas. {}.".format(
+        "hubo uno" if total == 1 else "hubo {}".format(total), horas_atras,
+        ". ".join(p[0].upper() + p[1:] for p in partes))
+
+
 # ── Revisión periódica ───────────────────────────────────────────────────────
 def _encolar(st, tipo, nombre, texto, destino, now):
     from . import anuncios

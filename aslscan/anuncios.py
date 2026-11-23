@@ -82,6 +82,8 @@ def init():
             c.execute("ALTER TABLE anuncios ADD COLUMN evento_id INTEGER NOT NULL DEFAULT 0")
         if "antes" not in cols:
             c.execute("ALTER TABLE anuncios ADD COLUMN antes TEXT NOT NULL DEFAULT '[]'")
+        if "dtmf" not in cols:                      # código DTMF que lo dispara (dtmf.py)
+            c.execute("ALTER TABLE anuncios ADD COLUMN dtmf TEXT NOT NULL DEFAULT ''")
 
 
 def _ahora():
@@ -283,6 +285,7 @@ def _limpio(d, actual=None):
         raise ValueError("La vigencia termina antes de empezar")
     a["destino"] = "red" if d.get("destino") == "red" else "local"
     a["activo"] = 1 if d.get("activo", actual.get("activo", True)) not in (False, 0, "0", "false") else 0
+    a["dtmf"] = str(d.get("dtmf", actual.get("dtmf", "")) or "").strip().upper().lstrip("*")   # app.py ya lo validó
     return a
 
 
@@ -520,7 +523,7 @@ class Emisor:
                 raise RuntimeError("Asterisk rechazó el comando: " + out.strip()[:200])
             log.info("Anuncio «%s» al aire (%s, %.1f s, %s)", a["nombre"], modo, dur, motivo)
             time.sleep(dur + 0.8)
-            _anotar(a, "ok", ("manual · " if motivo != "programado" else "") +
+            _anotar(a, "ok", {"programado": "", "dtmf": "DTMF · "}.get(motivo, "manual · ") +
                     ("nodo y enlaces" if modo == "playback" else "solo este nodo"))
         finally:
             if temporal:
