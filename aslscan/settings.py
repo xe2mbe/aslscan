@@ -51,6 +51,7 @@ DEFAULTS = {
     "azure_rate": 100,
     "azure_pitch": 0,
     "espeak_voice": "es-419",
+    "pron_dict": [],            # diccionario de pronunciación (pronuncia.py)
 
     # Seguridad
     "password_hash": "",

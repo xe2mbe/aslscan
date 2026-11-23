@@ -23,7 +23,7 @@ import urllib.request
 import wave
 from pathlib import Path
 
-from . import paths
+from . import paths, pronuncia
 
 log = logging.getLogger("aslscan.voz")
 
@@ -258,7 +258,7 @@ _MOTORES = {"azure": _azure, "piper": _piper, "espeak": _espeak}
 
 def sintetizar(text, cfg, out, now=None):
     """Texto (con variables resueltas) → WAV 8 kHz en *out*. Devuelve (texto dicho, duración)."""
-    dicho = resolver(text, cfg, now).strip()
+    dicho = pronuncia.para_voz(resolver(text, cfg, now), cfg).strip()
     if not dicho:
         raise ValueError("Escribe el texto del anuncio")
     out = Path(out)

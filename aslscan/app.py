@@ -8,11 +8,12 @@ import logging
 import os
 import re
 import shutil
+import threading
 import time
 import uuid
 from pathlib import Path
 
-from . import VERSION, anuncios, auth, autobackup, backends, backup, health, db, links, notify, paths, sessions, settings, sysmon, tts, updates
+from . import VERSION, anuncios, auth, pronuncia, autobackup, backends, backup, health, db, links, notify, paths, sessions, settings, sysmon, tts, updates
 from .live import live
 from .web import App, HTTPError, Response, jsonr, send_file
 
@@ -631,7 +632,10 @@ def anuncios_audio(req, aid):
 def anuncios_voz(req):
     """Escuchar el texto con la voz configurada antes de guardar."""
     b = req.json()
-    nombre, dicho, dur = anuncios.vista_previa(str(b.get("texto") or "")[:2000], settings.load())
+    cfg = settings.load()
+    if isinstance(b.get("diccionario"), list):         # probar el diccionario antes de guardarlo
+        cfg = dict(cfg, pron_dict=pronuncia.normalizar(b["diccionario"]))
+    nombre, dicho, dur = anuncios.vista_previa(str(b.get("texto") or "")[:2000], cfg)
     return ok(url="api/tmp/" + nombre, texto=dicho, duracion=round(dur, 1), max_seg=anuncios.MAX_SEG)
 
 
@@ -640,6 +644,33 @@ def tmp_audio(req, name):
     if not re.match(r"^voz_[0-9a-f]{8}\.wav$", name):
         raise HTTPError(404)
     return send_file(paths.tmp_dir() / name, "audio/wav")
+
+
+# ── Diccionario de pronunciación ────────────────────────────────────────────
+@app.route("/api/pronuncia", rol="admin")
+def pronuncia_ver(req):
+    return jsonr({"lista": settings.get("pron_dict") or [], "max": pronuncia.MAX})
+
+
+@app.route("/api/pronuncia/probar", ("POST",), rol="admin")
+def pronuncia_probar(req):
+    b = req.json()
+    lista = pronuncia.normalizar(b.get("diccionario")) if isinstance(b.get("diccionario"), list) else settings.get("pron_dict") or []
+    texto, usados = pronuncia.aplicar(str(b.get("texto") or "")[:2000], lista)
+    return ok(texto=texto, usados=usados)
+
+
+@app.route("/api/pronuncia", ("PUT",), rol="admin")
+def pronuncia_guardar(req):
+    nueva = pronuncia.normalizar(req.json().get("lista"))
+    vieja = settings.get("pron_dict") or []
+    settings.save({"pron_dict": nueva})
+    cambios = pronuncia.cambiados(vieja, nueva)
+    log.info("%s guardó el diccionario de pronunciación (%d términos, %d cambios)", req.user["usuario"], len(nueva), len(cambios))
+    ans = anuncios.usan(cambios) if cambios else []
+    if ans:
+        threading.Thread(target=anuncios.rehacer_voces, args=(cambios,), daemon=True, name="aslscan-pronuncia").start()
+    return ok(lista=nueva, secciones=[], anuncios=ans)
 
 
 @app.route("/api/voz", rol="lectura")

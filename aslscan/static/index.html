@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="static/icon-180.png">
 <link rel="manifest" href="static/manifest.webmanifest">
 <meta name="theme-color" content="#0f1a33">
-<link rel="stylesheet" href="static/app.css?v=1.4.1">
+<link rel="stylesheet" href="static/app.css?v=1.5.0">
 </head>
 <body>
 
@@ -224,6 +224,7 @@
             <label>Probar voz<textarea id="vozTest" rows="2">{saludo}, este es un anuncio de prueba del nodo {nodo}. Son las {hora}.</textarea></label>
             <div class="row gap wrap"><button type="button" class="btn" id="btnVozTest">▶ Escuchar</button><audio id="vozTestAudio" controls class="hidden"></audio></div>
             <small class="muted">Se oye con la voz guardada: si cambiaste algo, guarda primero.</small>
+            <div class="pron" id="pronBox"></div>
           </fieldset>
           <fieldset data-set="tonos" class="hidden">
             <legend>Tonos de cortesía</legend>
@@ -429,7 +430,7 @@
 </div>
 <div class="toast hidden" id="toast"></div>
 
-<script src="static/i18n.js?v=1.4.1"></script>
-<script src="static/app.js?v=1.4.1"></script>
+<script src="static/i18n.js?v=1.5.0"></script>
+<script src="static/app.js?v=1.5.0"></script>
 </body>
 </html>

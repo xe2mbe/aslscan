@@ -33,7 +33,7 @@ ASLSCAN is the **Dashboard of [HAMNA Web](https://github.com/xe2mbe/hamna)** as 
 | **Node** | Node number, station name and logo; test the connection with Asterisk / IRLP |
 | **Tones** (ASL3) | The courtesy tones in rpt.conf: listen in the browser, edit beeps and pauses, which tone plays when the node is linked or not, the pause before the tone (unkeywait) and the hang time. A copy is kept before each change; **Apply** restarts Asterisk and goes back to the previous file if the node doesn't come back |
 | **Users** | Same as HAMNA: create, edit, roles, sessions, lockouts |
-| **Voice** | The voice for announcements: Azure (key, region, voice, style, speed, pitch) or Piper (`sudo apt install asl3-tts`), with a test |
+| **Voice** | The voice for announcements: Azure (key, region, voice, style, speed, pitch) or Piper (`sudo apt install asl3-tts`), with a test, and the pronunciation dictionary |
 | **Telegram** | The bot (token, chat), who has it linked, and the alerts |
 | **Backup** | Automatic, download and restore, receive from other nodes |
 | **System** | Updates, equipment health, live audio, node info, IRLPvCON and the nodes panel |
@@ -86,6 +86,16 @@ It installs the newest release (`vX.Y.Z` tag) and keeps users, favorites and set
 - They're included in backups.
 
 Announcements need no ffmpeg or sox: everything is stored as 8 kHz WAV, which Asterisk reads directly.
+
+### Pronunciation dictionary
+
+**Settings → Voice → Pronunciation dictionary**: a table of *Written* → *How it's said* (e.g. `WSPR → uísper`, `ON4KST → o ene cuatro ka ese te`). It's applied to everything the voice says (announcements and tests), with any voice engine, right before the text goes to the engine and after the variables; what's written doesn't change.
+
+- Whole words only (`FT8` changes in "(FT8)," but not inside `FT8CALL`); longest terms first (`FT8 DX` before `FT8`); one single pass.
+- Exact case by default; tick **Aa** on a term to ignore case.
+- ▶ on each row plays just that term; **Try a text** shows what the voice gets and plays it, even before saving.
+- **Paste list** takes one term per line (`WSPR = uísper`, add `| Aa` to ignore case) and shows what's new, what changes and which lines it didn't understand; **Copy list** gives the same format to share it.
+- When you save, the stored voices that use a changed term (announcements) are generated again in the background. Up to 500 terms; it's included in backups.
 
 ### Live listening
 
@@ -160,7 +170,7 @@ ASLSCAN es el **Dashboard de [HAMNA Web](https://github.com/xe2mbe/hamna)** como
 | **Nodo** | Número de nodo, nombre de la estación y logo; probar la conexión con Asterisk / IRLP |
 | **Tonos** (ASL3) | Los tonos de cortesía de rpt.conf: escucharlos en el navegador, editar pitidos y pausas, qué tono suena con el nodo enlazado o sin enlaces, la pausa antes del tono (unkeywait) y la cola (hangtime). Se guarda una copia antes de cada cambio; **Aplicar** reinicia Asterisk y regresa al archivo anterior si el nodo no vuelve |
 | **Usuarios** | Igual que en HAMNA: crear, editar, roles, sesiones, bloqueos |
-| **Voz** | La voz de los anuncios: Azure (clave, región, voz, estilo, velocidad, tono) o Piper (`sudo apt install asl3-tts`), con prueba |
+| **Voz** | La voz de los anuncios: Azure (clave, región, voz, estilo, velocidad, tono) o Piper (`sudo apt install asl3-tts`), con prueba, y el diccionario de pronunciación |
 | **Telegram** | El bot (token, chat), quién lo tiene vinculado y los avisos |
 | **Respaldo** | Automático, descargar y restaurar, recibir de otros nodos |
 | **Sistema** | Actualizaciones, salud del equipo, audio en vivo, datos del nodo, IRLPvCON y el panel de nodos |
@@ -213,6 +223,16 @@ Instala la versión publicada más nueva (etiqueta `vX.Y.Z`) y conserva usuarios
 - Entran en los respaldos.
 
 Los anuncios no necesitan ffmpeg ni sox: todo se guarda en WAV 8 kHz, que Asterisk lee directo.
+
+### Diccionario de pronunciación
+
+**Ajustes → Voz → Diccionario de pronunciación**: una tabla *Escrito* → *Cómo se dice* (p. ej. `WSPR → uísper`, `ON4KST → o ene cuatro ka ese te`). Se aplica a todo lo que dice la voz (anuncios y pruebas), con cualquier motor, justo antes de mandar el texto al motor y después de las variables; lo escrito no cambia.
+
+- Solo palabras completas (`FT8` cambia en «(FT8),» pero no dentro de `FT8CALL`); primero los términos más largos (`FT8 DX` antes que `FT8`); una sola pasada.
+- Mayúsculas exactas por defecto; marca **Aa** en un término para ignorarlas.
+- ▶ en cada renglón oye solo ese término; **Probar un texto** muestra lo que recibe la voz y lo reproduce, aun antes de guardar.
+- **Pegar lista** acepta un término por renglón (`WSPR = uísper`, y `| Aa` para ignorar mayúsculas) y muestra qué es nuevo, qué cambia y qué renglones no entendió; **Copiar lista** da el mismo formato para compartirlo.
+- Al guardar, las voces ya generadas que usan un término cambiado (anuncios) se vuelven a generar en segundo plano. Hasta 500 términos; entra en los respaldos.
 
 ### Escuchar en vivo
 

@@ -571,4 +571,30 @@ def resumen():
             "emisor": emisor.estado(), "bitacora": bitacora(30), "max_seg": MAX_SEG, "espera_min": ESPERA_MAX // 60,
             "voz": {"motor": tts.motor(cfg), "nombre": tts.NOMBRES.get(tts.motor(cfg)), "lista": tts.configurado(cfg),
                     "variables": tts.VARIABLES},
+            "pronuncia": cfg.get("pron_dict") or [],
             "asl": backends.kind(cfg) == "asl", "ahora": _fmt(ahora)}
+
+
+def rehacer_voces(terminos, cfg=None):
+    """El diccionario cambió: vuelve a generar la voz guardada de los anuncios que usan esos términos."""
+    from . import pronuncia
+    cfg = cfg or settings.load()
+    n = 0
+    for a in lista():
+        if a["tipo"] != "tts" or not pronuncia.toca(a["texto"], terminos):
+            continue
+        try:
+            nombre, dur = _voz(a["texto"], cfg)
+        except Exception as e:
+            log.warning("No pude rehacer la voz del anuncio «%s»: %s", a["nombre"], e)
+            continue
+        db.execute("UPDATE anuncios SET archivo=?, duracion=? WHERE id=?", (nombre, dur, a["id"]))
+        if a["archivo"]:
+            paths.rm(carpeta() / a["archivo"])
+        n += 1
+    return n
+
+
+def usan(terminos):
+    from . import pronuncia
+    return [a["nombre"] for a in lista() if a["tipo"] == "tts" and pronuncia.toca(a["texto"], terminos)]
