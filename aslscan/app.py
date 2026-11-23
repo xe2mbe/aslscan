@@ -522,7 +522,7 @@ def tonos_aplicar(req):
 # ── Ajustes ──────────────────────────────────────────────────────────────────
 NUM_KEYS = {"ab_keep": int, "ab_recv_keep": int, "hub_alerta_min": int, "azure_rate": int, "azure_pitch": int,
             "eleven_stability": int, "eleven_similarity": int, "eleven_speed": int}
-BOOL_KEYS = {"tg_enabled", "tg_on_backup", "tg_on_health", "tg_bot_on", "ab_tg_on", "hub_on", "tg_on_nodes",
+BOOL_KEYS = {"rc_on", "tg_enabled", "tg_on_backup", "tg_on_health", "tg_bot_on", "ab_tg_on", "hub_on", "tg_on_nodes",
              "ab_enabled", "ab_node_on", "ab_cloud_on", "al_clima_on", "al_pron_on", "al_pron_tormenta", "al_sismo_on"}
 AL_NUM = ("al_viento", "al_racha", "al_lluvia", "al_presion", "al_calor", "al_frio", "al_repetir_min", "al_pron_horas",
           "al_pron_prob", "al_pron_mm", "al_pron_racha", "al_pron_calor", "al_pron_frio", "al_sismo_cerca_km",

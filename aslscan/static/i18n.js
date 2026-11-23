@@ -25,6 +25,7 @@
     jueves: "Thursday", viernes: "Friday", "sábado": "Saturday" };
 
   const D = {
+    "🎛 Permitir que el hub controle este nodo desde su bot de Telegram (conexiones, anuncios, salud…). Quién puede hacerlo lo decide el administrador del hub, nodo por nodo.": "🎛 Let the hub control this node from its Telegram bot (connections, announcements, health…). Who can do it is decided by the hub's administrator, node by node.",
     "El nombre exacto de la región de tu recurso, todo junto: southcentralus, eastus…": "Your resource's exact region name, all together: southcentralus, eastus…",
     // Programación → Anuncios y Ajustes → Voz
     "Anuncios cortos que el nodo transmite solo": "Short announcements the node transmits on its own",

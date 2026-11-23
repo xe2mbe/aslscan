@@ -21,7 +21,7 @@ ASLSCAN is the **Dashboard of [HAMNA Web](https://github.com/xe2mbe/hamna)** as 
 - **🔊 Live listening** from the page (8 kHz, up to 8 listeners).
 - **📢 Announcements** (Schedule → Announcements): short announcements (up to 60 s) that the node transmits on its own at given times, every N minutes or once, read by a voice (Azure, ElevenLabs or Piper/asl3-tts), with the time and the weather if you want; plus **⚠ automatic alerts** for weather, forecast and earthquakes, uploaded or recorded from the page; they wait for a quiet channel and never interrupt (AllStar nodes).
 - **Telegram bot**: 📋 Menu → 🔗 Connections (see, connect with your favorites by category or by number, change the mode, disconnect), 🩺 Health and 🗺 Nodes. Alerts for health, failed backups and nodes that stop reporting.
-- **Nodes panel**: each node reports its health, device and version to a hub every minute. ASLSCAN and HAMNA Web nodes can report to the same hub.
+- **Nodes panel**: each node reports its health, device and version to a hub every minute. ASLSCAN and HAMNA Web nodes can report to the same hub. With "Let the hub control this node" checked, the hub's Telegram bot (HAMNA Web 1.50 or newer) can also see and control this node: connections, announcements, weather and alerts, health — with permissions per node set on the hub.
 - **Users** with roles (administrator, operator, read only), sessions, attempt lockout, photo and language (English / Spanish).
 - **Backups**: download/restore, and an automatic daily backup to another node (ASLSCAN or HAMNA Web), Google Drive / OneDrive (rclone) or Telegram.
 - **Equipment health**: SD card errors, slow writes, undervoltage, temperature, disk.
@@ -197,7 +197,7 @@ ASLSCAN es el **Dashboard de [HAMNA Web](https://github.com/xe2mbe/hamna)** como
 - **🔊 Escuchar en vivo** desde la página (8 kHz, hasta 8 personas).
 - **📢 Anuncios** (Programación → Anuncios): anuncios cortos (hasta 60 s) que el nodo transmite solo a ciertas horas, cada N minutos o una vez, con voz (Azure, ElevenLabs o Piper/asl3-tts), y si quieres con la hora y el clima; además **⚠ alertas automáticas** de clima, pronóstico y sismos, subidos o grabados desde la página; esperan a que el canal esté libre y nunca interrumpen (nodos AllStar).
 - **Bot de Telegram**: 📋 Menú → 🔗 Conexiones (ver, conectar con tus favoritos por categoría o por número, cambiar el modo, desconectar), 🩺 Salud y 🗺 Nodos. Avisos de salud, de respaldos fallidos y de nodos que dejan de reportar.
-- **Panel de nodos**: cada nodo manda a un hub su salud, equipo y versión cada minuto. Los nodos con ASLSCAN y con HAMNA Web pueden reportar al mismo hub.
+- **Panel de nodos**: cada nodo manda a un hub su salud, equipo y versión cada minuto. Los nodos con ASLSCAN y con HAMNA Web pueden reportar al mismo hub. Si marcas "Permitir que el hub controle este nodo", el bot de Telegram del hub (HAMNA Web 1.50 o más nueva) también puede ver y controlar este nodo: conexiones, anuncios, clima y alertas, salud — con permisos por nodo que se dan en el hub.
 - **Usuarios** con roles (administrador, operador, solo lectura), sesiones, bloqueo por intentos, foto e idioma (inglés / español).
 - **Respaldos**: descargar/restaurar, y respaldo automático diario a otro nodo (ASLSCAN o HAMNA Web), Google Drive / OneDrive (rclone) o Telegram.
 - **Salud del equipo**: errores de la tarjeta SD, escritura lenta, bajo voltaje, temperatura, disco.

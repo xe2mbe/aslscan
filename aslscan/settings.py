@@ -94,6 +94,8 @@ DEFAULTS = {
     "secret_key": "",
 }
 
+DEFAULTS["rc_on"] = False         # permitir que el hub controle este nodo desde su bot (remoto.py)
+
 # Claves que nunca se mandan al navegador
 SECRET_KEYS = {"password_hash", "secret_key", "tg_token", "ab_node_token", "hub_token", "azure_key", "eleven_key", "wx_pws_key"}
 
