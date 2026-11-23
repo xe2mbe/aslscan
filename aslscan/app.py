@@ -13,7 +13,7 @@ import time
 import uuid
 from pathlib import Path
 
-from . import VERSION, anuncios, auth, pronuncia, autobackup, backends, backup, health, db, links, notify, paths, sessions, settings, sysmon, tts, updates
+from . import VERSION, anuncios, auth, horas, pronuncia, tz, autobackup, backends, backup, health, db, links, notify, paths, sessions, settings, sysmon, tts, updates
 from .live import live
 from .web import App, HTTPError, Response, jsonr, send_file
 
@@ -644,6 +644,17 @@ def tmp_audio(req, name):
     if not re.match(r"^voz_[0-9a-f]{8}\.wav$", name):
         raise HTTPError(404)
     return send_file(paths.tmp_dir() / name, "audio/wav")
+
+
+# ── Variables de hora con zona ({hora 21:00 America/Chicago}, {hora_evento …}) ──
+@app.route("/api/horas/probar", ("POST",), rol="lectura")
+def horas_probar(req):
+    return ok(items=horas.revisar(str(req.json().get("texto") or "")[:4000]))
+
+
+@app.route("/api/zonas", rol="lectura")
+def zonas(req):
+    return jsonr({"nodo": tz.node_zone(), "zonas": [{"id": z, "nombre": n} for z, n in tz.ZONAS if z and tz.valid(z)]})
 
 
 # ── Diccionario de pronunciación ────────────────────────────────────────────

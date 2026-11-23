@@ -23,7 +23,7 @@ import urllib.request
 import wave
 from pathlib import Path
 
-from . import paths, pronuncia
+from . import horas, paths, pronuncia
 
 log = logging.getLogger("aslscan.voz")
 
@@ -54,11 +54,12 @@ def _saludo(now, desp=False):
 
 
 def tiene_variables(text):
-    return any(v in (text or "") for v, _ in VARIABLES)
+    return any(v in (text or "") for v, _ in VARIABLES) or horas.tiene(text)
 
 
 def resolver(text, cfg, now=None):
     now = now or datetime.datetime.now()
+    text = horas.resolver(text, cfg, now)        # {hora 21:00 America/Chicago}
     rep = {
         "{hora}": now.strftime("%H:%M"),
         "{dia}": DIAS[now.weekday()],

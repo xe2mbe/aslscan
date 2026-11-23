@@ -87,6 +87,15 @@ It installs the newest release (`vX.Y.Z` tag) and keeps users, favorites and set
 
 Announcements need no ffmpeg or sox: everything is stored as 8 kHz WAV, which Asterisk reads directly.
 
+### Times from another time zone
+
+A net at "9 pm Chicago time" is 9 pm here in winter and 8 pm in summer. Instead of writing the time, insert it with **🕗 Time in another zone** (next to the variables): choose the time there, the zone and how to say it. The text gets `{hora 21:00 America/Chicago}` and the voice says the right local time on the day it goes out: «9 de la noche» now, «8 de la noche» after the US changes to daylight saving time, without touching the text.
+
+- Formats: words («9 de la noche», the default), `| 24h` («21:00») or `| 12h` («9 pm»).
+- In the editor these times are highlighted in green and below it says what they'll say today; a wrong one is flagged with ⚠ (and isn't read).
+- The voice is generated at air time: announcements already do it, and that's why they always say the right time.
+- The pronunciation dictionary isn't applied inside the token (the time is calculated first).
+
 ### Pronunciation dictionary
 
 **Settings → Voice → Pronunciation dictionary**: a table of *Written* → *How it's said* (e.g. `WSPR → uísper`, `ON4KST → o ene cuatro ka ese te`). It's applied to everything the voice says (announcements and tests), with any voice engine, right before the text goes to the engine and after the variables; what's written doesn't change.
@@ -223,6 +232,15 @@ Instala la versión publicada más nueva (etiqueta `vX.Y.Z`) y conserva usuarios
 - Entran en los respaldos.
 
 Los anuncios no necesitan ffmpeg ni sox: todo se guarda en WAV 8 kHz, que Asterisk lee directo.
+
+### Horas de otra zona horaria
+
+Una net «a las 9 pm de Chicago» es a las 9 pm aquí en invierno y a las 8 pm en verano. En lugar de escribir la hora, insértala con **🕗 Hora de otra zona** (junto a las variables): eliges la hora de allá, la zona y cómo decirla. En el texto queda `{hora 21:00 America/Chicago}` y la voz dice la hora correcta de aquí el día que sale: «9 de la noche» ahora, «8 de la noche» cuando EE. UU. cambie al horario de verano, sin tocar el texto.
+
+- Formatos: palabras («9 de la noche», el de siempre), `| 24h` («21:00») o `| 12h` («9 pm»).
+- En el editor estas horas se resaltan en verde y abajo dice qué dirán hoy; una mal escrita se marca con ⚠ (y no se lee).
+- La voz se genera al momento de salir: los anuncios ya lo hacen, y por eso siempre dicen la hora correcta.
+- El diccionario de pronunciación no se aplica dentro del token (la hora se calcula antes).
 
 ### Diccionario de pronunciación
 
