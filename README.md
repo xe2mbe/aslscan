@@ -19,7 +19,7 @@ ASLSCAN is the **Dashboard of [HAMNA Web](https://github.com/xe2mbe/hamna)** as 
 - **Node search** in the AllStar directory by callsign, node number, description or location, with **● Online / ● No reply / ○ Offline** labels (AllStar DNS + IAX POKE).
 - **IRLP**: the node or reflector it's connected to, COS/PTT, the other nodes on the reflector, connect/disconnect, enable/disable, inactivity timeout, AUX outputs, DTMF, the IRLP log and the switch to turn the old IRLPvCON off.
 - **🔊 Live listening** from the page (8 kHz, up to 8 listeners).
-- **📢 Announcements** (Schedule → Announcements): short announcements (up to 60 s) that the node transmits on its own at given times, every N minutes or once, read by a voice (Azure or Piper/asl3-tts), uploaded or recorded from the page; they wait for a quiet channel and never interrupt (AllStar nodes).
+- **📢 Announcements** (Schedule → Announcements): short announcements (up to 60 s) that the node transmits on its own at given times, every N minutes or once, read by a voice (Azure, ElevenLabs or Piper/asl3-tts), with the time and the weather if you want, uploaded or recorded from the page; they wait for a quiet channel and never interrupt (AllStar nodes).
 - **Telegram bot**: 📋 Menu → 🔗 Connections (see, connect with your favorites by category or by number, change the mode, disconnect), 🩺 Health and 🗺 Nodes. Alerts for health, failed backups and nodes that stop reporting.
 - **Nodes panel**: each node reports its health, device and version to a hub every minute. ASLSCAN and HAMNA Web nodes can report to the same hub.
 - **Users** with roles (administrator, operator, read only), sessions, attempt lockout, photo and language (English / Spanish).
@@ -33,7 +33,8 @@ ASLSCAN is the **Dashboard of [HAMNA Web](https://github.com/xe2mbe/hamna)** as 
 | **Node** | Node number, station name and logo; test the connection with Asterisk / IRLP |
 | **Tones** (ASL3) | The courtesy tones in rpt.conf: listen in the browser, edit beeps and pauses, which tone plays when the node is linked or not, the pause before the tone (unkeywait) and the hang time. A copy is kept before each change; **Apply** restarts Asterisk and goes back to the previous file if the node doesn't come back |
 | **Users** | Same as HAMNA: create, edit, roles, sessions, lockouts |
-| **Voice** | The voice for announcements: Azure (key, region, voice, style, speed, pitch) or Piper (`sudo apt install asl3-tts`), with a test, and the pronunciation dictionary |
+| **Voice** | The voice for announcements: Azure (key, region, voice, style, speed, pitch), ElevenLabs (key, voice, model) or Piper (`sudo apt install asl3-tts`), with a test, and the pronunciation dictionary |
+| **Weather** | The location for the weather variables (Open-Meteo) and, optionally, your Weather Underground station |
 | **Telegram** | The bot (token, chat), who has it linked, and the alerts |
 | **Backup** | Automatic, download and restore, receive from other nodes |
 | **System** | Updates, equipment health, live audio, node info, IRLPvCON and the nodes panel |
@@ -77,7 +78,7 @@ It installs the newest release (`vX.Y.Z` tag) and keeps users, favorites and set
 
 **Schedule → Announcements**: short announcements (up to 60 s) that the node transmits on its own.
 
-- **What it says**: text read by the voice of Settings → Voice (with `{hora}`, `{dia}`, `{fecha}`, `{fecha_larga}`, `{saludo}`, `{despedida}`, `{nodo}`; if the text has variables the voice is generated again right before it goes out), an uploaded audio file, or a recording made from the page (needs https). Uploads and recordings are converted in the browser.
+- **What it says**: text read by the voice of Settings → Voice (with `{hora}`, `{son_las}`, `{dia}`, `{fecha}`, `{fecha_larga}`, `{saludo}`, `{despedida}`, `{nodo}` and the weather ones; if the text has variables the voice is generated again right before it goes out), an uploaded audio file, or a recording made from the page (needs https). Uploads and recordings are converted in the browser.
 - **When**: at given times on the chosen days, every N minutes within a time window, just once; optionally only between two dates.
 - **RF or RF + Net per time slot**: in «At these times» each time has two checkboxes, 📻 RF (always on: AllStar can't send audio only to the linked nodes) and 🌐 Net (e.g. 09:00 and 13:00 RF only, 20:50 to the whole network). The card shows it at a glance: *🌐 Net only 20:50*. «Transmit now» asks where it goes this time.
 - **Where**: only this node's radio (`rpt localplay`) or also the linked nodes (`rpt playback`).
@@ -86,6 +87,15 @@ It installs the newest release (`vX.Y.Z` tag) and keeps users, favorites and set
 - They're included in backups.
 
 Announcements need no ffmpeg or sox: everything is stored as 8 kHz WAV, which Asterisk reads directly.
+
+### Weather and time in announcements
+
+Set your location in **Settings → Weather** (search the city, use 📍 My location over https, or type latitude and longitude) and **🌤 Test** shows what each variable would say right now. The data comes from [Open-Meteo](https://open-meteo.com): free, no sign-up, anywhere in the world. If you have a station on Weather Underground, put its ID and API key and its readings replace Open-Meteo's (sky conditions and forecast still come from Open-Meteo).
+
+- Variables: `{temperatura}`, `{sensacion}`, `{condicion}`, `{humedad}`, `{viento}`, `{racha}`, `{presion}`, `{pronostico}` (today's; tomorrow's after 4 pm), `{lugar}`; units °C/km/h or °F/mph. Plus `{son_las}`: the time in words («son las 3 y media de la tarde»).
+- Templates for a new announcement: **🕐 Time** (every 30 min), **🕐 Time and temperature** and **🌤 Weather report** (every hour at :47). They're ordinary announcements: edit the text, the times, RF/Net or pause them.
+- The weather is read a minute before the announcement goes out and kept 10 min. If the time or the weather can't be generated right then (no internet, voice down), that slot is skipped instead of airing old data.
+- If another program already announces the time, the weather or plays audio on the node (`saytime.pl` and the like in the crontab), Schedule → Announcements says so, so it isn't heard twice. ASLSCAN never touches other programs.
 
 ### Times from another time zone
 
@@ -165,7 +175,7 @@ ASLSCAN es el **Dashboard de [HAMNA Web](https://github.com/xe2mbe/hamna)** como
 - **Buscador de nodos** en el directorio de AllStar por indicativo, número, descripción o lugar, con etiquetas **● En línea / ● Sin resp. / ○ Apagado** (DNS de AllStar + POKE de IAX).
 - **IRLP**: a qué nodo o reflector está conectado, COS/PTT, los demás nodos del reflector, conectar/desconectar, habilitar/deshabilitar, desconexión por inactividad, salidas AUX, DTMF, la bitácora de IRLP y el botón para apagar el viejo IRLPvCON.
 - **🔊 Escuchar en vivo** desde la página (8 kHz, hasta 8 personas).
-- **📢 Anuncios** (Programación → Anuncios): anuncios cortos (hasta 60 s) que el nodo transmite solo a ciertas horas, cada N minutos o una vez, con voz (Azure o Piper/asl3-tts), subidos o grabados desde la página; esperan a que el canal esté libre y nunca interrumpen (nodos AllStar).
+- **📢 Anuncios** (Programación → Anuncios): anuncios cortos (hasta 60 s) que el nodo transmite solo a ciertas horas, cada N minutos o una vez, con voz (Azure, ElevenLabs o Piper/asl3-tts), y si quieres con la hora y el clima, subidos o grabados desde la página; esperan a que el canal esté libre y nunca interrumpen (nodos AllStar).
 - **Bot de Telegram**: 📋 Menú → 🔗 Conexiones (ver, conectar con tus favoritos por categoría o por número, cambiar el modo, desconectar), 🩺 Salud y 🗺 Nodos. Avisos de salud, de respaldos fallidos y de nodos que dejan de reportar.
 - **Panel de nodos**: cada nodo manda a un hub su salud, equipo y versión cada minuto. Los nodos con ASLSCAN y con HAMNA Web pueden reportar al mismo hub.
 - **Usuarios** con roles (administrador, operador, solo lectura), sesiones, bloqueo por intentos, foto e idioma (inglés / español).
@@ -179,7 +189,8 @@ ASLSCAN es el **Dashboard de [HAMNA Web](https://github.com/xe2mbe/hamna)** como
 | **Nodo** | Número de nodo, nombre de la estación y logo; probar la conexión con Asterisk / IRLP |
 | **Tonos** (ASL3) | Los tonos de cortesía de rpt.conf: escucharlos en el navegador, editar pitidos y pausas, qué tono suena con el nodo enlazado o sin enlaces, la pausa antes del tono (unkeywait) y la cola (hangtime). Se guarda una copia antes de cada cambio; **Aplicar** reinicia Asterisk y regresa al archivo anterior si el nodo no vuelve |
 | **Usuarios** | Igual que en HAMNA: crear, editar, roles, sesiones, bloqueos |
-| **Voz** | La voz de los anuncios: Azure (clave, región, voz, estilo, velocidad, tono) o Piper (`sudo apt install asl3-tts`), con prueba, y el diccionario de pronunciación |
+| **Voz** | La voz de los anuncios: Azure (clave, región, voz, estilo, velocidad, tono), ElevenLabs (clave, voz, modelo) o Piper (`sudo apt install asl3-tts`), con prueba, y el diccionario de pronunciación |
+| **Clima** | La ubicación para las variables del clima (Open-Meteo) y, si quieres, tu estación de Weather Underground |
 | **Telegram** | El bot (token, chat), quién lo tiene vinculado y los avisos |
 | **Respaldo** | Automático, descargar y restaurar, recibir de otros nodos |
 | **Sistema** | Actualizaciones, salud del equipo, audio en vivo, datos del nodo, IRLPvCON y el panel de nodos |
@@ -223,7 +234,7 @@ Instala la versión publicada más nueva (etiqueta `vX.Y.Z`) y conserva usuarios
 
 **Programación → Anuncios**: anuncios cortos (hasta 60 s) que el nodo transmite solo.
 
-- **Qué dice**: un texto que lee la voz de Ajustes → Voz (con `{hora}`, `{dia}`, `{fecha}`, `{fecha_larga}`, `{saludo}`, `{despedida}`, `{nodo}`; si el texto lleva variables la voz se genera otra vez justo antes de salir), un audio subido o una grabación hecha desde la página (requiere https). Lo subido y lo grabado se convierte en el navegador.
+- **Qué dice**: un texto que lee la voz de Ajustes → Voz (con `{hora}`, `{son_las}`, `{dia}`, `{fecha}`, `{fecha_larga}`, `{saludo}`, `{despedida}`, `{nodo}` y las del clima; si el texto lleva variables la voz se genera otra vez justo antes de salir), un audio subido o una grabación hecha desde la página (requiere https). Lo subido y lo grabado se convierte en el navegador.
 - **Cuándo**: a ciertas horas los días elegidos, cada N minutos dentro de un horario, una sola vez; si quieres, solo entre dos fechas.
 - **RF o RF + Net en cada horario**: en «A estas horas» cada hora tiene dos casillas, 📻 RF (siempre marcada: AllStar no puede mandar un audio solo a los enlazados) y 🌐 Net (p. ej. 09:00 y 13:00 solo RF, 20:50 a toda la red). La tarjeta lo dice de un vistazo: *🌐 Net solo 20:50*. «Transmitir ahora» pregunta por dónde sale esa vez.
 - **Dónde**: solo el radio de este nodo (`rpt localplay`) o también los nodos enlazados (`rpt playback`).
@@ -232,6 +243,15 @@ Instala la versión publicada más nueva (etiqueta `vX.Y.Z`) y conserva usuarios
 - Entran en los respaldos.
 
 Los anuncios no necesitan ffmpeg ni sox: todo se guarda en WAV 8 kHz, que Asterisk lee directo.
+
+### Clima y hora en los anuncios
+
+Pon tu ubicación en **Ajustes → Clima** (busca la ciudad, usa 📍 Mi ubicación con https o escribe latitud y longitud) y **🌤 Probar** muestra qué diría cada variable en ese momento. Los datos son de [Open-Meteo](https://open-meteo.com): gratis, sin registro y para cualquier lugar del mundo. Si tienes una estación en Weather Underground, pon su ID y su clave de API y sus lecturas reemplazan a las de Open-Meteo (el cielo y el pronóstico siguen siendo de Open-Meteo).
+
+- Variables: `{temperatura}`, `{sensacion}`, `{condicion}`, `{humedad}`, `{viento}`, `{racha}`, `{presion}`, `{pronostico}` (el de hoy; después de las 4 de la tarde, el de mañana), `{lugar}`; unidades °C/km/h o °F/mph. Además `{son_las}`: la hora dicha («son las 3 y media de la tarde»).
+- Plantillas al crear un anuncio: **🕐 Hora** (cada 30 min), **🕐 Hora y temperatura** y **🌤 Reporte del clima** (cada hora a los :47). Son anuncios normales: cambias el texto, las horas, RF/Net o los pausas.
+- El clima se lee un minuto antes de que salga el anuncio y se guarda 10 min. Si en ese momento no se puede generar la hora o el clima (sin internet, voz caída), ese turno se salta en vez de transmitir un dato viejo.
+- Si otro programa ya anuncia la hora, el clima o reproduce audios en el nodo (`saytime.pl` y similares en el crontab), Programación → Anuncios lo avisa para que no se oiga dos veces. ASLSCAN nunca toca otros programas.
 
 ### Horas de otra zona horaria
 

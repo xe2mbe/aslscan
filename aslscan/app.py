@@ -13,7 +13,7 @@ import time
 import uuid
 from pathlib import Path
 
-from . import VERSION, anuncios, auth, horas, pronuncia, tz, autobackup, backends, backup, health, db, links, notify, paths, sessions, settings, sysmon, tts, updates
+from . import VERSION, anuncios, auth, clima, horas, pronuncia, tz, autobackup, backends, backup, health, db, links, notify, paths, sessions, settings, sysmon, tts, updates
 from .live import live
 from .web import App, HTTPError, Response, jsonr, send_file
 
@@ -520,12 +520,16 @@ def tonos_aplicar(req):
 
 
 # ── Ajustes ──────────────────────────────────────────────────────────────────
-NUM_KEYS = {"ab_keep": int, "ab_recv_keep": int, "hub_alerta_min": int, "azure_rate": int, "azure_pitch": int}
+NUM_KEYS = {"ab_keep": int, "ab_recv_keep": int, "hub_alerta_min": int, "azure_rate": int, "azure_pitch": int,
+            "eleven_stability": int, "eleven_similarity": int, "eleven_speed": int}
 BOOL_KEYS = {"tg_enabled", "tg_on_backup", "tg_on_health", "tg_bot_on", "ab_tg_on", "hub_on", "tg_on_nodes",
              "ab_enabled", "ab_node_on", "ab_cloud_on"}
 STR_KEYS = {"backend", "node", "irlp_env", "station_name", "tg_chat",
             "ab_hora", "ab_node_url", "ab_node_pin", "ab_cloud_folder", "hub_url", "hub_pin",
-            "tts_engine", "azure_region", "azure_voice", "azure_style", "espeak_voice"}
+            "tts_engine", "azure_region", "azure_voice", "azure_style", "espeak_voice",
+            "eleven_voice", "eleven_voice_name", "eleven_model",
+            "wx_lat", "wx_lon", "wx_lugar", "wx_unidades", "wx_pws_station"}
+SECRET_IN = ("tg_token", "ab_node_token", "hub_token", "azure_key", "eleven_key", "wx_pws_key")
 
 
 @app.route("/api/ajustes")
@@ -546,7 +550,7 @@ def ajustes_save(req):
             upd[k] = v if isinstance(v, bool) else truthy(v)
         elif k in STR_KEYS:
             upd[k] = str(v).strip()
-        elif k in ("tg_token", "ab_node_token", "hub_token", "azure_key") and str(v).strip():
+        elif k in SECRET_IN and str(v).strip():
             upd[k] = str(v).strip()
     if "ab_hora" in upd and not re.match(r"^([01]\d|2[0-3]):[0-5]\d$", upd["ab_hora"]):
         raise ValueError("Hora del respaldo inválida (HH:MM)")
@@ -561,12 +565,18 @@ def ajustes_save(req):
         raise ValueError("Tipo de nodo inválido")
     if "azure_region" in upd:              # «South Central US» → southcentralus
         upd["azure_region"] = re.sub(r"[^a-z0-9]", "", upd["azure_region"].lower())
-    if upd.get("tts_engine") not in (None, "azure", "piper", "espeak"):
+    if upd.get("tts_engine") not in (None, "", "azure", "elevenlabs", "piper", "espeak"):
         raise ValueError("Motor de voz inválido")
     if "azure_rate" in upd and not 50 <= upd["azure_rate"] <= 200:
         raise ValueError("Velocidad de la voz: de 50 a 200 %")
     if "azure_pitch" in upd and not -50 <= upd["azure_pitch"] <= 50:
         raise ValueError("Tono de la voz: de -50 a 50 Hz")
+    for k in ("eleven_stability", "eleven_similarity"):
+        if k in upd and not 0 <= upd[k] <= 100:
+            raise ValueError("ElevenLabs: estabilidad y parecido van de 0 a 100 %")
+    if "eleven_speed" in upd and not 70 <= upd["eleven_speed"] <= 120:
+        raise ValueError("ElevenLabs: velocidad de 70 a 120 %")
+    _clima_valida(upd)
     settings.save(upd)
     return ok(ajustes=settings.public())
 
@@ -688,7 +698,53 @@ def pronuncia_guardar(req):
 def voz_info(req):
     cfg = settings.load()
     return jsonr({"motores": tts.motores(), "motor": tts.motor(cfg), "lista": tts.configurado(cfg),
-                  "nombres": tts.NOMBRES, "azure_key_set": bool(cfg.get("azure_key"))})
+                  "nombres": tts.NOMBRES, "azure_key_set": bool(cfg.get("azure_key")),
+                  "eleven_key_set": bool(cfg.get("eleven_key"))})
+
+
+@app.route("/api/elevenlabs/voces", ("POST",), rol="admin")
+def eleven_voces(req):
+    key = (req.json().get("eleven_key") or settings.load().get("eleven_key") or "").strip()
+    if not key:
+        raise ValueError("Escribe la clave de ElevenLabs")
+    return ok(voces=tts.eleven_voces(key))
+
+
+# ── Ajustes → Clima ──────────────────────────────────────────────────────────
+def _clima_valida(upd):
+    for k, lim in (("wx_lat", 90), ("wx_lon", 180)):
+        if upd.get(k):
+            try:
+                v = float(upd[k].replace(",", "."))
+            except ValueError:
+                raise ValueError("Latitud y longitud: números, p. ej. 24.0277 y -104.6532")
+            if not -lim <= v <= lim:
+                raise ValueError("Latitud de -90 a 90 y longitud de -180 a 180")
+            upd[k] = "{:.4f}".format(v)
+    if upd.get("wx_unidades") not in (None, "metric", "imperial"):
+        raise ValueError("Unidades inválidas")
+    if "wx_lugar" in upd:
+        upd["wx_lugar"] = upd["wx_lugar"][:60]
+    if "wx_pws_station" in upd:
+        upd["wx_pws_station"] = re.sub(r"[^A-Za-z0-9_-]", "", upd["wx_pws_station"])[:30]
+
+
+@app.route("/api/clima/buscar", rol="admin")
+def clima_buscar(req):
+    return ok(lugares=clima.buscar_lugar(req.query.get("q", ""), req.query.get("idioma", "es")))
+
+
+@app.route("/api/clima/probar", ("POST",), rol="admin")
+def clima_probar(req):
+    """Prueba con lo que está escrito en la página (sin guardar); la clave vacía = la guardada."""
+    cfg = settings.load()
+    b = req.json()
+    upd = {k: str(b[k]).strip() for k in ("wx_lat", "wx_lon", "wx_lugar", "wx_unidades", "wx_pws_station") if k in b}
+    _clima_valida(upd)
+    cfg.update(upd)
+    if str(b.get("wx_pws_key") or "").strip():
+        cfg["wx_pws_key"] = str(b["wx_pws_key"]).strip()
+    return ok(**clima.probar(cfg))
 
 
 @app.route("/api/azure/voces", ("POST",), rol="admin")

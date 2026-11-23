@@ -355,6 +355,20 @@
     "Flash v2.5 — más rápido, cuesta la mitad": "Flash v2.5 — faster, half the cost", "Turbo v2.5 — rápido, buena calidad": "Turbo v2.5 — fast, good quality",
     "Estabilidad (%)": "Stability (%)", "Parecido a la voz (%)": "Similarity (%)",
     "Más alto = más parejo; más bajo = más expresivo.": "Higher = steadier; lower = more expressive.",
+    // Ajustes → Clima
+    "Clima": "Weather", "Clima para los anuncios": "Weather for the announcements",
+    "Con tu ubicación, los anuncios pueden decir el clima: {temperatura}, {condicion}, {pronostico}… Los datos son de": "With your location, announcements can say the weather: {temperatura}, {condicion}, {pronostico}… The data comes from",
+    "(gratis, sin registro, para cualquier lugar del mundo).": "(free, no sign-up, anywhere in the world).",
+    "Ciudad, estado o país": "City, state or country", "📍 Mi ubicación": "📍 My location",
+    "Puedes filtrar con una coma: «Monterrey, Nuevo León». Si no sale tu ciudad, prueba con su nombre oficial (Victoria de Durango) o escribe la latitud y la longitud abajo.": "You can filter with a comma: «Springfield, Illinois». If your city doesn't show up, try its official name or type the latitude and longitude below.",
+    "Buscar el lugar": "Find the place", "Buscar": "Search", "O escribe la latitud y la longitud abajo.": "Or type the latitude and longitude below.",
+    "Latitud": "Latitude", "Longitud": "Longitude", "Unidades": "Units", "°C y km/h": "°C and km/h", "°F y mph": "°F and mph",
+    "Cómo se dice el lugar": "How to say the place", "Lo que dice {lugar}: «Reporte del clima en Durango».": "What {lugar} says: «Reporte del clima en Durango».",
+    "Estación meteorológica propia (opcional)": "Your own weather station (optional)",
+    "Si tienes una estación en Weather Underground, sus lecturas de temperatura, humedad, viento y presión reemplazan a las de Open-Meteo. El cielo y el pronóstico siguen siendo de Open-Meteo.": "If you have a station on Weather Underground, its temperature, humidity, wind and pressure readings replace Open-Meteo's. Sky conditions and the forecast still come from Open-Meteo.",
+    "ID de la estación": "Station ID", "Clave de API": "API key", "wunderground.com → My Profile → API Keys.": "wunderground.com → My Profile → API Keys.",
+    "🌤 Probar": "🌤 Test",
+    "Los anuncios con clima leen los datos al momento de salir (guardados hasta 10 min). Si no hay internet y la última lectura tiene más de 3 horas, ese anuncio se salta en vez de decir un clima viejo.": "Announcements with weather read the data when they go out (kept up to 10 min). If there's no internet and the last reading is more than 3 hours old, that announcement is skipped instead of saying old weather.",
     "•••••• (guardada; escribe para cambiarla)": "•••••• (saved; type to change it)",
     // Pausas y audio
     "Retardo PTT (s)": "PTT delay (s)", "Silencio al inicio de cada audio, para que el transmisor y los repetidores enganchen.":

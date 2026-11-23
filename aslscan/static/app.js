@@ -466,6 +466,7 @@ function showSet(k) {
   if (k === "telegram") loadBotSt();
   if (k === "tonos") loadTonos();
   if (k === "voz") { loadVoz(); loadPron(); }
+  if (k === "clima") loadClima();
   if (k === "sistema") loadHubSt();
 }
 async function loadBotSt() {
@@ -2128,7 +2129,22 @@ const AN_DIAS = () => LG("L M X J V S D", "Mo Tu We Th Fr Sa Su").split(" ");
 const AN_DIAS_LARGO = () => LG("Lun Mar Mié Jue Vie Sáb Dom", "Mon Tue Wed Thu Fri Sat Sun").split(" ");
 const AN_VAR_EN = { "{hora}": "Current time (HH:MM)", "{dia}": "Day of the week", "{fecha}": "Date (dd/mm/yyyy)",
   "{fecha_larga}": "Date in words (2 de noviembre de 2026)", "{saludo}": "Buenos días / buenas tardes / buenas noches (by time of day)",
-  "{despedida}": "Buen día / buena tarde / buena noche (by time of day)", "{nodo}": "Node number" };
+  "{despedida}": "Buen día / buena tarde / buena noche (by time of day)", "{nodo}": "Node number",
+  "{son_las}": "The time in words: «son las 3 y media de la tarde» / «es la una de la tarde»",
+  "{temperatura}": "Current temperature (22 grados)", "{sensacion}": "Feels-like temperature (20 grados)",
+  "{condicion}": "Sky conditions (cielo parcialmente nublado)", "{humedad}": "Relative humidity (45 por ciento)",
+  "{viento}": "Wind (15 kilómetros por hora del noreste / en calma)", "{racha}": "Highest wind gust (35 kilómetros por hora)",
+  "{presion}": "Pressure (1013 hectopascales)", "{pronostico}": "Today's forecast (tomorrow's after 4 pm)",
+  "{lugar}": "Place name (Settings → Weather)" };
+/* Plantillas para un anuncio nuevo (lo que se transmite va en español, como el resto de las variables) */
+const AN_PLANTILLAS = [
+  { id: "hora", icono: "🕐", es: "Hora", en: "Time", nombre: "Hora", texto: "{saludo}. {son_las}.", modo: "cada", cada_min: 30, desde_h: "07:00", hasta_h: "22:00" },
+  { id: "hora_clima", icono: "🕐", es: "Hora y temperatura", en: "Time and temperature", clima: true, nombre: "Hora y temperatura",
+    texto: "{saludo}. {son_las}. En {lugar} tenemos {temperatura}.", modo: "cada", cada_min: 30, desde_h: "07:00", hasta_h: "22:00" },
+  { id: "clima", icono: "🌤", es: "Reporte del clima", en: "Weather report", clima: true, nombre: "Reporte del clima",
+    texto: "{saludo}. Reporte del clima en {lugar}: {condicion}. Temperatura de {temperatura}, sensación térmica de {sensacion}. Humedad del {humedad}. Viento {viento}. {pronostico}",
+    modo: "cada", cada_min: 60, desde_h: "07:47", hasta_h: "21:47" },
+];
 const anDetalle = (t) => LG(t, String(t || "").replace(/^manual · /, "manual · ").replace("solo este nodo", "this node only").replace("nodo y enlaces", "node and links")
   .replace(/^El canal estuvo ocupado (\d+) min$/, "The channel was busy for $1 min")
   .replace(/^Los anuncios solo salen en nodos AllStar.*$/, "Announcements only go out on AllStar nodes with a node number (Settings → Node)")
@@ -2179,8 +2195,16 @@ function renderAnuncios() {
   const d = S.an, lst = d.anuncios, puede = puedeAnunciar(), act = (d.emisor || {}).actual;
   $("#btnNewAnuncio").classList.toggle("hidden", !puede || !d.asl);
   $("#anCnt").textContent = lst.length || "";
-  $("#anAviso").innerHTML = !d.asl ? `<div class="note warn">${LG("Los anuncios salen al aire solo en nodos AllStar (ASL). Este nodo no es ASL o no tiene número de nodo en Ajustes → Nodo.", "Announcements only go on air on AllStar (ASL) nodes. This node isn't ASL or has no node number in Settings → Node.")}</div>`
+  let aviso = !d.asl ? `<div class="note warn">${LG("Los anuncios salen al aire solo en nodos AllStar (ASL). Este nodo no es ASL o no tiene número de nodo en Ajustes → Nodo.", "Announcements only go on air on AllStar (ASL) nodes. This node isn't ASL or has no node number in Settings → Node.")}</div>`
     : !d.voz.lista ? `<div class="note warn">${LG("La voz no está configurada", "The voice isn't set up")} (${esc(d.voz.nombre || "")}). ${isAdmin() ? LG("Revisa Ajustes → Voz. Mientras, puedes subir o grabar el audio.", "Check Settings → Voice. Meanwhile you can upload or record the audio.") : LG("Pídele al administrador que la configure; mientras, puedes subir o grabar el audio.", "Ask the administrator to set it up; meanwhile you can upload or record the audio.")}</div>` : "";
+  if ((d.otros || []).length) {
+    const QUE = { hora: LG("anuncia la hora", "announces the time"), clima: LG("anuncia el clima", "announces the weather"), audio: LG("reproduce audios", "plays audio") };
+    aviso += `<details class="note an-otros"><summary>ⓘ ${LG("Otros programas también hablan en este nodo", "Other programs also talk on this node")}: ${[...new Set(d.otros.map((o) => QUE[o.que]))].join(", ")}</summary>
+      <p class="muted">${LG("Si programas aquí lo mismo (por ejemplo la hora) se oirá dos veces, y sus audios no esperan a que el canal esté libre. Para dejarlo solo en ASLSCAN, quita esas líneas de su crontab. ASLSCAN no las toca.", "If you schedule the same thing here (the time, for example) it will be heard twice, and their audio doesn't wait for a clear channel. To leave it only in ASLSCAN, remove those lines from their crontab. ASLSCAN doesn't touch them.")}</p>
+      <ul>${d.otros.map((o) => `<li><b>${esc(QUE[o.que])}</b> · <code translate="no">${esc(o.donde)}</code><br><small class="muted" translate="no">${esc(o.detalle)}</small></li>`).join("")}</ul></details>`;
+  }
+  // Solo se redibuja si cambió (se refresca cada pocos segundos y cerraría el aviso abierto)
+  if (S.anAvisoHtml !== aviso) { $("#anAviso").innerHTML = aviso; S.anAvisoHtml = aviso; }
   const sig = d.siguiente;
   $("#anNext").innerHTML = act ? `<div class="an-next live"><span class="lbl">${act.estado === "al_aire" ? "📡 " + LG("Al aire", "On air") : "⏳ " + LG("Esperando a que se libere el canal", "Waiting for the channel to clear")}</span><b translate="no">${esc(act.nombre)}</b></div>`
     : sig ? `<div class="an-next"><span class="lbl">${LG("Próximo", "Next")}</span><b translate="no">📢 ${esc(sig.nombre)}</b><span>${anFecha(sig.cuando)} · ${LG("en", "in")} ${fmtLeft(anMinutos(d.ahora, sig.cuando) * 60)} · ${sig.red ? "📻 RF + 🌐 Net" : "📻 RF"}</span></div>` : "";
@@ -2295,8 +2319,13 @@ function anuncioEditor(a) {
     desde_h: "08:00", hasta_h: "22:00", una_vez: "", vig_desde: "", vig_hasta: "", destino: "local", activo: true };
   const ed = { tipo: a.tipo, horas: a.horas.map((x) => ({ h: x.h, red: !!x.red })), antes: (a.antes || []).slice(), archivo: null, archivoNombre: a.archivo_nombre || "", dur: a.duracion || 0 };
   const puedeGrabar = !!(window.isSecureContext && navigator.mediaDevices && window.MediaRecorder);
-  const vars = (d.voz.variables || []).map(([v, t]) => `<button type="button" class="chip" data-anvar="${esc(v)}" title="${esc(LG(t, AN_VAR_EN[v] || t))}" translate="no">${esc(v)}</button>`).join("");
+  const chip = ([v, t]) => `<button type="button" class="chip" data-anvar="${esc(v)}" title="${esc(LG(t, AN_VAR_EN[v] || t))}" translate="no">${esc(v)}</button>`;
+  const vars = (d.voz.variables || []).map(chip).join("");
+  const climaListo = !!(d.clima && d.clima.listo);
+  const varsClima = (d.voz.variables_clima || []).map(chip).join("");
+  const plantillas = nuevo ? `<div class="an-plant"><span class="muted">${LG("Empezar con", "Start from")}:</span> ${AN_PLANTILLAS.map((p) => `<button type="button" class="chip" data-plant="${p.id}" ${p.clima && !climaListo ? "disabled" : ""} title="${p.clima && !climaListo ? esc(LG("Primero pon tu ubicación en Ajustes → Clima", "First set your location in Settings → Weather")) : ""}">${p.icono} ${esc(LG(p.es, p.en))}</button>`).join("")}</div>` : "";
   openModal(nuevo ? LG("Nuevo anuncio", "New announcement") : LG("Editar anuncio", "Edit announcement"), `<form id="anForm" class="an-form" autocomplete="off">
+    ${plantillas}
     <label>${LG("Nombre", "Name")}<input name="nombre" maxlength="80" required value="${esc(a.nombre)}" placeholder="${LG("Red de los martes", "Tuesday net")}"></label>
     <div class="an-sec"><b>${LG("Qué dice", "What it says")}</b>
       <div class="seg" id="anTipo">
@@ -2307,6 +2336,7 @@ function anuncioEditor(a) {
       <div data-pane="tts"><textarea name="texto" rows="3" maxlength="2000" placeholder="${LG("Les recordamos que hoy martes a las 21:00 tenemos la red…", "Remember that tonight at 9 pm we have the net…")}">${esc(a.texto)}</textarea>
         <div class="an-dic hidden" id="anDic"></div>
         <div class="an-vars"><span class="muted">${LG("Variables", "Variables")}:</span> ${vars}</div>
+        <div class="an-vars an-vars-clima"><span class="muted">🌤 ${LG("Clima", "Weather")}:</span> ${climaListo ? varsClima : `<span class="muted">${LG("pon tu ubicación en Ajustes → Clima para usarlas", "set your location in Settings → Weather to use them")}</span>`}</div>
         <div class="hz-box" id="anHz"></div>
         <div class="row gap wrap"><button type="button" class="btn sm" id="anVozPlay">▶ ${LG("Escuchar", "Listen")}</button><span class="muted" id="anVozMsg">${esc(d.voz.nombre || "")}${d.voz.lista ? "" : " · ⚠ " + LG("sin configurar", "not set up")}</span></div></div>
       <div data-pane="audio" class="hidden"><label class="btn sm" style="margin:0">📁 ${LG("Elegir archivo", "Choose file")}<input type="file" id="anFile" accept="audio/*" hidden></label>
@@ -2413,11 +2443,21 @@ function anuncioEditor(a) {
       if (v >= 1 && v <= 720 && !ed.antes.includes(v)) { ed.antes.push(v); ed.antes.sort((p, q) => q - p); pintaAntes(); }
     };
   }
-  f.querySelector(".an-vars").onclick = (e) => {
-    const b = e.target.closest("[data-anvar]"); if (!b) return;
+  const plant = f.querySelector(".an-plant");
+  if (plant) plant.onclick = (e) => {
+    const b = e.target.closest("[data-plant]"); if (!b || b.disabled) return;
+    const p = AN_PLANTILLAS.find((x) => x.id === b.dataset.plant);
+    if (!f.nombre.value.trim() || AN_PLANTILLAS.some((x) => [x.es, x.en].includes(f.nombre.value))) f.nombre.value = LG(p.es, p.en);
+    f.texto.value = p.texto; setTipo("tts"); repinta();
+    f.cada_min.value = String(p.cada_min); f.desde_h.value = p.desde_h; f.hasta_h.value = p.hasta_h; setModo(p.modo);
+    $$("#anForm [data-dia]").forEach((x) => x.classList.add("on"));
+    $$(".an-plant [data-plant]").forEach((x) => x.classList.toggle("active", x === b));
+  };
+  f.addEventListener("click", (e) => {
+    const b = e.target.closest(".an-vars [data-anvar]"); if (!b) return;
     const t = f.texto, p = t.selectionStart ?? t.value.length;
     t.value = t.value.slice(0, p) + b.dataset.anvar + t.value.slice(t.selectionEnd ?? p); t.focus(); repinta();
-  };
+  });
   $("#anVozPlay").onclick = async () => {
     const b = $("#anVozPlay"); busy(b, true, LG("Generando…", "Generating…"));
     try {
@@ -2493,14 +2533,87 @@ async function loadVoz() {
       (v.motores.includes("piper") ? "" : " · " + LG("Piper no está instalado (sudo apt install asl3-tts)", "Piper isn't installed (sudo apt install asl3-tts)"));
     S.vozMotores = v.motores;
   } catch {}
-  f.azure_key.value = "";
-  f.azure_key.placeholder = S.cfg && S.cfg.azure_key_set ? "•••••• " + LG("(guardada; escribe para cambiarla)", "(saved; type to change it)") : "";
+  for (const [k, set] of [["azure_key", "azure_key_set"], ["eleven_key", "eleven_key_set"]]) {
+    f[k].value = "";
+    f[k].placeholder = S.cfg && S.cfg[set] ? "•••••• " + LG("(guardada; escribe para cambiarla)", "(saved; type to change it)") : "";
+  }
+  if (S.cfg) elevenOption(S.cfg.eleven_voice, S.cfg.eleven_voice_name);
   vozVer();
 }
 function vozVer() {
   const sel = $("#setForm").tts_engine.value || ((S.vozMotores || []).includes("piper") ? "piper" : "azure");
   $$("#setForm .only-azure").forEach((x) => x.classList.toggle("hidden", sel !== "azure"));
+  $$("#setForm .only-elevenlabs").forEach((x) => x.classList.toggle("hidden", sel !== "elevenlabs"));
 }
+function elevenOption(id, name) {
+  const sel = $("#elevenVoice");
+  if (id && ![...sel.options].some((o) => o.value === id)) sel.insertAdjacentHTML("beforeend", `<option value="${esc(id)}">${esc(name || id)}</option>`);
+  sel.value = id || "";
+}
+$("#elevenVoice").addEventListener("change", (e) => {
+  const o = e.target.selectedOptions[0];
+  $("#setForm").eleven_voice_name.value = o && o.value ? o.dataset.nombre || o.textContent : "";
+});
+$("#btnElevenVoices").onclick = async () => {
+  const f = $("#setForm"), b = $("#btnElevenVoices"), sel = $("#elevenVoice"), antes = sel.value; busy(b, true, "…");
+  try {
+    const r = await api("api/elevenlabs/voces", { method: "POST", json: { eleven_key: f.eleven_key.value } });
+    sel.innerHTML = `<option value="">— ${LG("Elige una voz", "Choose a voice")} —</option>` + r.voces.map((v) => `<option value="${esc(v.name)}" data-nombre="${esc(v.display)}">${esc(v.display)}${v.gender ? " · " + esc(LG(v.gender, { Femenina: "Female", Masculina: "Male" }[v.gender] || v.gender)) : ""}${v.locale ? " · " + esc(v.locale) : ""}</option>`).join("");
+    if (antes) elevenOption(antes, S.cfg && S.cfg.eleven_voice_name);
+    toast(LG(`${r.voces.length} voces en tu cuenta: elige una y guarda`, `${r.voces.length} voices in your account: pick one and save`));
+  } catch (e) { toast(e.message, true); } finally { busy(b, false); }
+};
+
+/* ── Ajustes → Clima ─────────────────────────────────────────────────────── */
+function loadClima() {
+  const f = $("#setForm");
+  f.wx_pws_key.value = "";
+  f.wx_pws_key.placeholder = S.cfg && S.cfg.wx_pws_key_set ? "•••••• " + LG("(guardada; escribe para cambiarla)", "(saved; type to change it)") : "";
+  if (S.cfg && S.cfg.wx_pws_station) $("#wxPws").open = true;
+  $("#wxEstado").textContent = S.cfg && S.cfg.wx_lat && S.cfg.wx_lon ? "" : LG("Falta la ubicación", "Location missing");
+  $("#btnWxAqui").classList.toggle("hidden", !(window.isSecureContext && navigator.geolocation));
+}
+$("#btnWxAqui").onclick = () => {
+  const b = $("#btnWxAqui"); busy(b, true, "…");
+  navigator.geolocation.getCurrentPosition((p) => {
+    busy(b, false);
+    const f = $("#setForm");
+    f.wx_lat.value = p.coords.latitude.toFixed(4); f.wx_lon.value = p.coords.longitude.toFixed(4);
+    toast(LG("Ubicación de este navegador puesta: escribe cómo se dice el lugar y guarda", "This browser's location set: type how to say the place and save"));
+  }, (e) => { busy(b, false); toast(LG("El navegador no dio la ubicación", "The browser didn't give the location") + (e && e.message ? ": " + e.message : ""), true); },
+  { timeout: 15000 });
+};
+async function wxBuscar() {
+  const b = $("#btnWxBuscar"), box = $("#wxLugares"); busy(b, true, "…");
+  try {
+    const r = await api("api/clima/buscar?idioma=" + (window.HAMNA_LANG || "es") + "&q=" + encodeURIComponent($("#wxBuscar").value));
+    box.innerHTML = r.lugares.length ? r.lugares.map((l, i) => `<button type="button" class="wx-lugar" data-wxi="${i}"><b translate="no">${esc(l.nombre)}</b> <span class="muted" translate="no">${esc([l.region, l.pais].filter(Boolean).join(", "))} · ${l.lat}, ${l.lon}${l.poblacion ? " · " + l.poblacion.toLocaleString() + " " + LG("hab.", "pop.") : ""}</span></button>`).join("")
+      : `<p class="muted">${LG("No encontré ese lugar. Prueba con otro nombre o escribe la latitud y la longitud.", "I couldn't find that place. Try another name or type the latitude and longitude.")}</p>`;
+    box.classList.remove("hidden");
+    S.wxLugares = r.lugares;
+  } catch (e) { toast(e.message, true); } finally { busy(b, false); }
+}
+$("#btnWxBuscar").onclick = wxBuscar;
+$("#wxBuscar").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); wxBuscar(); } });
+$("#wxLugares").onclick = (e) => {
+  const b = e.target.closest("[data-wxi]"); if (!b) return;
+  const l = S.wxLugares[+b.dataset.wxi], f = $("#setForm");
+  f.wx_lat.value = l.lat; f.wx_lon.value = l.lon; f.wx_lugar.value = l.nombre;
+  $("#wxLugares").classList.add("hidden");
+  toast(LG(`${l.nombre}: guarda para usarlo`, `${l.nombre}: save to use it`));
+};
+$("#btnWxProbar").onclick = async () => {
+  const f = $("#setForm"), b = $("#btnWxProbar"), box = $("#wxPrueba"); busy(b, true, LG("Consultando…", "Checking…"));
+  try {
+    const r = await api("api/clima/probar", { method: "POST", json: { wx_lat: f.wx_lat.value, wx_lon: f.wx_lon.value, wx_lugar: f.wx_lugar.value,
+      wx_unidades: f.wx_unidades.value, wx_pws_station: f.wx_pws_station.value, wx_pws_key: f.wx_pws_key.value } });
+    $("#wxEstado").textContent = "✅ " + LG("Fuente", "Source") + ": " + r.fuente;
+    box.innerHTML = (r.avisos.length ? `<p class="note warn">⚠ ${r.avisos.map(esc).join("<br>")}</p>` : "") +
+      `<table class="wx-tabla"><tbody>${r.variables.map((v) => `<tr><td translate="no"><code>${esc(v.var)}</code></td><td translate="no">${v.dice ? "«" + esc(v.dice) + "»" : `<span class="muted">${LG("(sin dato)", "(no data)")}</span>`}</td></tr>`).join("")}</tbody></table>` +
+      `<small class="muted">${LG("Así lo diría la voz ahora. Si cambiaste algo, guarda para que los anuncios lo usen.", "This is what the voice would say now. If you changed something, save so the announcements use it.")}</small>`;
+    box.classList.remove("hidden");
+  } catch (e) { $("#wxEstado").textContent = "⚠ " + e.message; box.classList.add("hidden"); } finally { busy(b, false); }
+};
 $("#setForm").tts_engine.addEventListener("change", vozVer);
 $("#btnVoices").onclick = async () => {
   const f = $("#setForm"), b = $("#btnVoices"); busy(b, true, "…");

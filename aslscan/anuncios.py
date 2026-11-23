@@ -13,8 +13,9 @@ Nunca interrumpe: espera a que el canal quede en silencio (nadie recibiendo,
 transmitiendo ni hablando por un enlace) unos segundos seguidos. Si en
 ESPERA_MAX no se libera, ese turno se salta y queda en la bitácora.
 
-Si el texto lleva variables ({hora}, {dia}…) la voz se genera otra vez al
-momento de salir; si eso falla, sale el audio guardado.
+Si el texto lleva variables ({hora}, {dia}, {temperatura}…) la voz se genera
+otra vez al momento de salir; si eso falla, sale el audio guardado, salvo que
+diga la hora o el clima (sería un dato viejo): entonces ese turno se salta.
 """
 import datetime as dt
 import json
@@ -27,7 +28,7 @@ import time
 import uuid
 from pathlib import Path
 
-from . import backends, db, paths, sessions, settings, tts
+from . import backends, clima, db, paths, sessions, settings, tts
 
 log = logging.getLogger("aslscan.anuncios")
 
@@ -481,9 +482,13 @@ class Emisor:
                 tts.sintetizar(a["texto"], cfg, temporal)
                 wav = temporal
             except Exception as e:
-                log.warning("No pude generar la voz al momento (%s); sale el audio guardado", e)
                 paths.rm(temporal)
                 temporal = None
+                if tts.volatil(a["texto"]):
+                    log.warning("Anuncio «%s» saltado: no pude generar la voz al momento (%s)", a["nombre"], e)
+                    _anotar(a, "error", "No pude generar la voz al momento: {}".format(e))
+                    return
+                log.warning("No pude generar la voz al momento (%s); sale el audio guardado", e)
         if not wav or not wav.is_file():
             _anotar(a, "error", "Falta el audio del anuncio; edítalo y guárdalo otra vez")
             return
@@ -539,7 +544,14 @@ emisor = Emisor()
 def tick(now=None):
     t = (now or dt.datetime.now()).replace(second=0, microsecond=0)
     clave = _fmt(t)
-    for a in lista():
+    todos = lista()
+    # El clima se lee un minuto antes para que el anuncio no espere a internet
+    sig = t + dt.timedelta(minutes=1)
+    try:
+        clima.precalentar(settings.load(), [a["texto"] for a in todos if a["tipo"] == "tts" and turno(a, sig)])
+    except Exception:
+        log.exception("Clima por adelantado")
+    for a in todos:
         if a["ultima_clave"] == clave:
             continue
         destino = turno(a, t)
@@ -570,9 +582,20 @@ def resumen():
             "eventos": eventos,
             "emisor": emisor.estado(), "bitacora": bitacora(30), "max_seg": MAX_SEG, "espera_min": ESPERA_MAX // 60,
             "voz": {"motor": tts.motor(cfg), "nombre": tts.NOMBRES.get(tts.motor(cfg)), "lista": tts.configurado(cfg),
-                    "variables": tts.VARIABLES},
+                    "variables": tts.VARIABLES, "variables_clima": clima.VARIABLES},
+            "clima": {"listo": clima.configurado(cfg), "lugar": cfg.get("wx_lugar") or ""},
+            "otros": _otros(),
             "pronuncia": cfg.get("pron_dict") or [],
             "asl": backends.kind(cfg) == "asl", "ahora": _fmt(ahora)}
+
+
+def _otros():
+    try:
+        from . import conflictos
+        return conflictos.revisar()
+    except Exception:
+        log.exception("Revisando otros programas que hablan")
+        return []
 
 
 def rehacer_voces(terminos, cfg=None):

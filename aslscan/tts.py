@@ -2,39 +2,43 @@
 ASLSCAN — voz (texto → audio) para los anuncios.
 
 Motores:
-  azure   Azure Speech por REST (voces neuronales; requiere internet y clave)
+  azure       Azure Speech por REST (voces neuronales; requiere internet y clave)
+  elevenlabs  ElevenLabs por REST (voces muy naturales; requiere internet y clave)
   piper   asl-tts de AllStarLink (Piper, voz neuronal local; apt install asl3-tts)
   espeak  espeak-ng local (sin internet; voz sintética), si está instalado
 
 Todo termina en WAV 8 kHz, 16 bits, mono (lo que Asterisk lee directo con
-rpt localplay/playback) sin necesitar ffmpeg ni sox: Azure ya lo entrega así,
-asl-tts da µ-law 8 kHz y eSpeak se remuestrea aquí mismo.
+rpt localplay/playback) sin necesitar ffmpeg ni sox: Azure y ElevenLabs ya lo
+entregan así, asl-tts da µ-law 8 kHz y eSpeak se remuestrea aquí mismo.
 """
 import array
 import datetime
 import html
 import json
 import logging
+import os
 import shutil
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 import wave
 from pathlib import Path
 
-from . import horas, paths, pronuncia
+from . import clima, horas, paths, pronuncia
 
 log = logging.getLogger("aslscan.voz")
 
 RATE = 8000
-NOMBRES = {"azure": "Azure", "piper": "Piper (asl3-tts)", "espeak": "eSpeak NG"}
+NOMBRES = {"azure": "Azure", "elevenlabs": "ElevenLabs", "piper": "Piper (asl3-tts)", "espeak": "eSpeak NG"}
 
 DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
          "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 VARIABLES = [
     ("{hora}", "Hora actual (HH:MM)"),
+    ("{son_las}", "La hora dicha: «son las 3 y media de la tarde» / «es la una de la tarde»"),
     ("{dia}", "Día de la semana"),
     ("{fecha}", "Fecha (dd/mm/aaaa)"),
     ("{fecha_larga}", "Fecha en palabras (2 de noviembre de 2026)"),
@@ -54,14 +58,31 @@ def _saludo(now, desp=False):
 
 
 def tiene_variables(text):
-    return any(v in (text or "") for v, _ in VARIABLES) or horas.tiene(text)
+    return any(v in (text or "") for v, _ in VARIABLES) or horas.tiene(text) or clima.tiene(text)
+
+
+def volatil(text):
+    """¿Dice algo que cambia (la hora, el clima)? Entonces, si no se puede generar al
+    momento, es mejor no transmitir que repetir el audio guardado con datos viejos."""
+    t = text or ""
+    return "{hora}" in t or "{son_las}" in t or clima.tiene(t)
+
+
+def son_las(now):
+    """«son las 3 y media de la tarde» / «es la una de la tarde»."""
+    dicho = horas.decir(now)
+    if now.hour % 12 == 1:
+        return "es la una" + dicho[1:]
+    return "son las " + dicho
 
 
 def resolver(text, cfg, now=None):
     now = now or datetime.datetime.now()
     text = horas.resolver(text, cfg, now)        # {hora 21:00 America/Chicago}
+    text = clima.resolver(text, cfg, now)        # {temperatura}, {pronostico}…
     rep = {
         "{hora}": now.strftime("%H:%M"),
+        "{son_las}": son_las(now),
         "{dia}": DIAS[now.weekday()],
         "{fecha}": now.strftime("%d/%m/%Y"),
         "{fecha_larga}": "{} de {} de {}".format(now.day, MESES[now.month - 1], now.year),
@@ -154,8 +175,8 @@ def espeak_disponible():
 
 
 def motores():
-    """Motores que se pueden elegir en este nodo (Azure siempre: solo pide clave)."""
-    out = ["azure"]
+    """Motores que se pueden elegir en este nodo (Azure y ElevenLabs siempre: solo piden clave)."""
+    out = ["azure", "elevenlabs"]
     if piper_disponible():
         out.append("piper")
     if espeak_disponible():
@@ -174,6 +195,8 @@ def configurado(cfg):
     m = motor(cfg)
     if m == "azure":
         return bool((cfg.get("azure_key") or "").strip() and (cfg.get("azure_region") or "").strip())
+    if m == "elevenlabs":
+        return bool((cfg.get("eleven_key") or "").strip() and (cfg.get("eleven_voice") or "").strip())
     return True
 
 
@@ -254,7 +277,72 @@ def _espeak(text, cfg, out):
     return crudo
 
 
-_MOTORES = {"azure": _azure, "piper": _piper, "espeak": _espeak}
+ELEVEN_URL = os.environ.get("ASLSCAN_ELEVEN_API", "https://api.elevenlabs.io") + "/v1/"   # env: solo pruebas
+
+
+def _eleven_http(req, timeout=90):
+    try:
+        return urllib.request.urlopen(req, timeout=timeout).read()
+    except urllib.error.HTTPError as e:
+        cuerpo = e.read().decode("utf-8", "ignore")
+        detalle = cuerpo[:200]
+        try:
+            d = json.loads(cuerpo).get("detail")
+            detalle = (d.get("message") or d.get("status") or detalle) if isinstance(d, dict) else str(d or detalle)
+        except (ValueError, AttributeError):
+            pass
+        if e.code in (401, 403):
+            raise RuntimeError("ElevenLabs rechazó la clave (HTTP {}): {}".format(e.code, detalle))
+        if e.code == 429 or "quota" in detalle.lower():
+            raise RuntimeError("ElevenLabs: se acabaron los créditos o hay demasiadas peticiones (HTTP {}): {}".format(e.code, detalle))
+        raise RuntimeError("ElevenLabs HTTP {}: {}".format(e.code, detalle))
+    except urllib.error.URLError as e:
+        raise RuntimeError("No pude conectar con ElevenLabs: {}".format(e.reason))
+
+
+def _elevenlabs(text, cfg, out):
+    key = (cfg.get("eleven_key") or "").strip()
+    voice = (cfg.get("eleven_voice") or "").strip()
+    if not key:
+        raise RuntimeError("Falta la clave de ElevenLabs (Ajustes → Voz)")
+    if not voice:
+        raise RuntimeError("Elige una voz de ElevenLabs (Ajustes → Voz → Cargar)")
+    ajustes = {"stability": max(0, min(100, int(cfg.get("eleven_stability", 50)))) / 100.0,
+               "similarity_boost": max(0, min(100, int(cfg.get("eleven_similarity", 75)))) / 100.0}
+    vel = int(cfg.get("eleven_speed", 100))
+    if vel != 100:
+        ajustes["speed"] = max(70, min(120, vel)) / 100.0
+    body = {"text": text, "model_id": cfg.get("eleven_model") or "eleven_multilingual_v2", "voice_settings": ajustes}
+    req = urllib.request.Request(
+        ELEVEN_URL + "text-to-speech/{}?output_format=pcm_8000".format(urllib.parse.quote(voice)),
+        data=json.dumps(body).encode("utf-8"), method="POST",
+        headers={"xi-api-key": key, "Content-Type": "application/json", "Accept": "audio/pcm", "User-Agent": "ASLSCAN/1.0"})
+    pcm = _eleven_http(req, 120)
+    if len(pcm) < 200:
+        raise RuntimeError("ElevenLabs no devolvió audio")
+    crudo = out.with_name(out.stem + ".el.wav")
+    with wave.open(str(crudo), "wb") as w:              # PCM 16 bits little-endian, 8 kHz, mono
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(RATE)
+        w.writeframes(pcm[:len(pcm) - len(pcm) % 2])
+    return crudo
+
+
+def eleven_voces(key):
+    req = urllib.request.Request(ELEVEN_URL + "voices", headers={"xi-api-key": key.strip(), "User-Agent": "ASLSCAN/1.0"})
+    data = json.loads(_eleven_http(req, 20).decode("utf-8"))
+    out = []
+    for v in data.get("voices", []):
+        lb = v.get("labels") or {}
+        g = {"female": "Femenina", "male": "Masculina"}.get((lb.get("gender") or "").lower(), "")
+        extra = " · ".join(x for x in (lb.get("accent"), lb.get("description") or lb.get("descriptive"), v.get("category")) if x)
+        out.append({"name": v.get("voice_id", ""), "display": v.get("name", ""), "locale": extra, "gender": g})
+    out.sort(key=lambda v: v["display"].lower())
+    return out
+
+
+_MOTORES = {"azure": _azure, "elevenlabs": _elevenlabs, "piper": _piper, "espeak": _espeak}
 
 
 def sintetizar(text, cfg, out, now=None):

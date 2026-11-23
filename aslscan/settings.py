@@ -43,7 +43,7 @@ DEFAULTS = {
     "ab_recv_keep": 7,            # al recibir: respaldos por nodo
 
     # Voz de los anuncios (tts.py)
-    "tts_engine": "",           # azure | piper | espeak (vacío = Piper si está, si no Azure)
+    "tts_engine": "",           # azure | elevenlabs | piper | espeak (vacío = Piper si está, si no Azure)
     "azure_key": "",
     "azure_region": "",
     "azure_voice": "es-MX-DaliaNeural",
@@ -51,6 +51,21 @@ DEFAULTS = {
     "azure_rate": 100,
     "azure_pitch": 0,
     "espeak_voice": "es-419",
+    "eleven_key": "",
+    "eleven_voice": "",         # voice_id
+    "eleven_voice_name": "",    # solo para mostrarla en Ajustes
+    "eleven_model": "eleven_multilingual_v2",
+    "eleven_stability": 50,     # %
+    "eleven_similarity": 75,    # %
+    "eleven_speed": 100,        # % (70–120)
+
+    # Clima para los anuncios (clima.py)
+    "wx_lat": "",
+    "wx_lon": "",
+    "wx_lugar": "",             # cómo se dice el lugar: {lugar}
+    "wx_unidades": "metric",    # metric | imperial
+    "wx_pws_station": "",       # estación propia en Weather Underground (opcional)
+    "wx_pws_key": "",
     "pron_dict": [],            # diccionario de pronunciación (pronuncia.py)
 
     # Seguridad
@@ -59,7 +74,7 @@ DEFAULTS = {
 }
 
 # Claves que nunca se mandan al navegador
-SECRET_KEYS = {"password_hash", "secret_key", "tg_token", "ab_node_token", "hub_token", "azure_key"}
+SECRET_KEYS = {"password_hash", "secret_key", "tg_token", "ab_node_token", "hub_token", "azure_key", "eleven_key", "wx_pws_key"}
 
 _lock = threading.Lock()
 _cache = None
@@ -121,4 +136,6 @@ def public():
     out["ab_node_token_set"] = bool(cfg.get("ab_node_token"))
     out["hub_token_set"] = bool(cfg.get("hub_token"))
     out["azure_key_set"] = bool(cfg.get("azure_key"))
+    out["eleven_key_set"] = bool(cfg.get("eleven_key"))
+    out["wx_pws_key_set"] = bool(cfg.get("wx_pws_key"))
     return out

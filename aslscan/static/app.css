@@ -1137,3 +1137,24 @@ textarea.pron-ta { position: relative; background: transparent !important; displ
 .hz-fmt label.check { margin: 0; gap: 6px; font-size: .88rem; }
 .hz-fmt input { width: auto; margin: 0; }
 .hz-prev { margin: 4px 0 8px; font-size: .86rem; min-height: 1.2em; }
+
+/* Clima: plantillas, variables, buscador de lugar y prueba */
+.an-vars-clima { margin-top: -4px; }
+.an-plant { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 10px; font-size: .82rem; }
+.an-plant .chip { cursor: pointer; border: 1px solid var(--border); font: inherit; font-size: .8rem; padding: 4px 11px; background: var(--surface2); color: var(--text); }
+.an-plant .chip.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.an-plant .chip:disabled { opacity: .45; cursor: not-allowed; }
+.wx-lugares { display: flex; flex-direction: column; gap: 4px; margin: -4px 0 12px; }
+.wx-lugar { text-align: left; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface2); color: var(--text); font: inherit; cursor: pointer; }
+.wx-lugar:hover { border-color: var(--accent); }
+.wx-pws { margin: 4px 0 12px; }
+.wx-pws summary { cursor: pointer; font-weight: 600; }
+.wx-prueba { margin: 10px 0; }
+.wx-tabla { border-collapse: collapse; width: 100%; font-size: .88rem; margin-bottom: 6px; }
+.wx-tabla td { padding: 4px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.wx-tabla td:first-child { white-space: nowrap; width: 1%; }
+.an-otros { margin-bottom: 12px; }
+.an-otros summary { cursor: pointer; }
+.an-otros ul { margin: 6px 0 0; padding-left: 18px; }
+.an-otros li { margin-bottom: 6px; overflow-wrap: anywhere; }
+.wx-prueba .note.warn { padding: 8px 12px; border-radius: 10px; color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, transparent); }
