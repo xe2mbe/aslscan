@@ -106,6 +106,10 @@ ASLSCAN can change the node: an administrator can edit rpt.conf (tones, DTMF), a
 
 Announcements need no ffmpeg or sox: everything is stored as 8 kHz WAV, which Asterisk reads directly.
 
+### Voice library
+
+**Schedule → 📚 Library**: audio kept without a schedule, to use later. Add it as text → voice (with **📄 Load .txt** and its own voice, like an announcement), by uploading an audio file or recording it on the page; **📄 Load several .txt** creates one entry per file, named after the file (up to 20 at once). Each one has a name, optional notes, ▶ Listen, ⬇ Download (8 kHz WAV), ✏️ Edit (changing the text or the voice makes the audio again), ⧉ Duplicate and 🗑 Delete; search by name, notes or text, sorted by date or name. **📡 Transmit now** sends it once through the announcements queue (it waits for a clear channel), and **📢 Schedule as announcement** opens a new announcement with it: the audio is **copied**, so editing or deleting the library entry doesn't change announcements already made. If the text has variables, the voice is made again when it's transmitted. Up to 170 s each. It's included in backups.
+
 ### Weather and time in announcements
 
 Set your location in **Settings → Weather** (search the city, use 📍 My location over https, or type latitude and longitude) and **🌤 Test** shows what each variable would say right now. The data comes from [Open-Meteo](https://open-meteo.com): free, no sign-up, anywhere in the world. If you have a station on Weather Underground, put its ID and API key and its readings replace Open-Meteo's (sky conditions and forecast still come from Open-Meteo).
@@ -297,6 +301,10 @@ ASLSCAN puede cambiar el nodo: un administrador edita rpt.conf (tonos, DTMF) y u
 - Entran en los respaldos.
 
 Los anuncios no necesitan ffmpeg ni sox: todo se guarda en WAV 8 kHz, que Asterisk lee directo.
+
+### Biblioteca de voz
+
+**Programación → 📚 Biblioteca**: audios guardados sin horario, para usarlos después. Se agregan como texto → voz (con **📄 Cargar .txt** y voz propia, como un anuncio), subiendo un audio o grabándolo en la página; **📄 Cargar varios .txt** crea una entrada por archivo, con el nombre del archivo (hasta 20 a la vez). Cada uno tiene nombre, notas opcionales, ▶ Escuchar, ⬇ Descargar (WAV 8 kHz), ✏️ Editar (cambiar el texto o la voz rehace el audio), ⧉ Duplicar y 🗑 Borrar; se busca por nombre, notas o texto y se ordena por fecha o nombre. **📡 Transmitir ahora** lo manda una vez por la cola de los anuncios (espera canal libre), y **📢 Programar como anuncio** abre un anuncio nuevo con él: el audio se **copia**, así que corregir o borrar el de la biblioteca no cambia los anuncios ya hechos. Si el texto lleva variables, la voz se hace otra vez al transmitirse. Hasta 170 s cada uno. Entra en los respaldos.
 
 ### Clima y hora en los anuncios
 

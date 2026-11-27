@@ -79,7 +79,7 @@
         <div><h1>Programación</h1><p class="sub">Anuncios cortos que el nodo transmite solo</p></div>
         <div class="row gap"><button class="btn primary hidden" id="btnNewAnuncio">＋ Nuevo anuncio</button></div>
       </div>
-      <div class="prog-tabs" role="tablist" id="progTabs"><button type="button" class="active" role="tab" data-prog="anuncios">📢 Anuncios <span class="cnt" id="anCnt"></span></button><button type="button" role="tab" data-prog="alertas">⚠ Alertas <span class="cnt" id="alCnt"></span></button></div>
+      <div class="prog-tabs" role="tablist" id="progTabs"><button type="button" class="active" role="tab" data-prog="anuncios">📢 Anuncios <span class="cnt" id="anCnt"></span></button><button type="button" role="tab" data-prog="alertas">⚠ Alertas <span class="cnt" id="alCnt"></span></button><button type="button" role="tab" data-prog="biblioteca">📚 Biblioteca <span class="cnt" id="biCnt"></span></button></div>
       <div id="anView">
       <div id="anAviso"></div>
       <div id="anNext"></div>
@@ -87,6 +87,15 @@
       <details class="an-logwrap hidden" id="anLogWrap"><summary>Bitácora de anuncios</summary><div id="anLog"></div></details>
       </div>
       <div id="alView" class="hidden"><p class="muted">Cargando…</p></div>
+      <div id="biView" class="hidden">
+        <div class="row gap wrap bi-bar">
+          <input type="search" id="biQ" placeholder="Buscar por nombre, notas o texto" maxlength="60">
+          <select id="biOrden" title="Ordenar"><option value="fecha">Más recientes</option><option value="nombre">Por nombre</option></select>
+          <button type="button" class="btn primary hidden" id="biNew">＋ Agregar</button>
+          <label class="btn hidden" id="biTxtLbl" style="margin:0" title="Una entrada por archivo, con el nombre del archivo">📄 Cargar varios .txt<input type="file" id="biTxtMany" accept=".txt,text/plain" multiple hidden></label>
+        </div>
+        <div id="biList" class="cards"><p class="muted">Cargando…</p></div>
+      </div>
     </section>
 
     <section class="view hidden" id="view-nodos">

@@ -33,6 +33,8 @@ def init_app():
     auth.init()
     autobackup.init()
     anuncios.init()
+    from . import biblioteca
+    biblioteca.init()
     from . import historial
     historial.init()
     anuncios.emisor.start()
@@ -770,6 +772,90 @@ def anuncios_url_probar(req):
     if r.get("url_audio"):
         r["url_audio"] = "api/tmp/" + r["url_audio"]
     return ok(**r)
+
+
+# ── Programación → Biblioteca de voz ─────────────────────────────────────────
+def _bib_req(req, bid=None):
+    from . import biblioteca
+    try:
+        datos = json.loads(req.form.get("datos") or "{}")
+    except ValueError:
+        raise ValueError("Datos inválidos")
+    up = req.files.get("archivo")
+    return biblioteca.guardar(datos, up.path if up else None, up.filename if up else "", req.user["usuario"], bid)
+
+
+@app.route("/api/biblioteca", rol="lectura")
+def biblioteca_lista(req):
+    from . import biblioteca
+    return jsonr({"items": biblioteca.lista(req.query.get("q") or "", req.query.get("orden") or "fecha"),
+                  "max_seg": biblioteca.MAX_SEG, "max_lote": biblioteca.MAX_TXT_LOTE})
+
+
+@app.route("/api/biblioteca", ("POST",), rol="operador")
+def biblioteca_nuevo(req):
+    return ok(item=_bib_req(req))
+
+
+@app.route("/api/biblioteca/<int:bid>", ("PUT",), rol="operador")
+def biblioteca_editar(req, bid):
+    return ok(item=_bib_req(req, bid))
+
+
+@app.route("/api/biblioteca/<int:bid>", ("DELETE",), rol="operador")
+def biblioteca_borrar(req, bid):
+    from . import biblioteca
+    biblioteca.borrar(bid, req.user["usuario"])
+    return ok()
+
+
+@app.route("/api/biblioteca/<int:bid>/duplicar", ("POST",), rol="operador")
+def biblioteca_duplicar(req, bid):
+    from . import biblioteca
+    return ok(item=biblioteca.duplicar(bid, req.user["usuario"]))
+
+
+@app.route("/api/biblioteca/<int:bid>/ahora", ("POST",), rol="operador")
+def biblioteca_ahora(req, bid):
+    from . import biblioteca
+    destino = (req.json() or {}).get("destino")
+    if destino not in ("local", "red"):
+        raise ValueError("Destino inválido")
+    biblioteca.transmitir(bid, destino, req.user["usuario"])
+    return ok()
+
+
+@app.route("/api/biblioteca/txt", ("POST",), rol="operador")
+def biblioteca_txt(req):
+    from . import biblioteca
+    b = req.json()
+    return ok(resultados=biblioteca.varios_txt(b.get("archivos"), req.user["usuario"],
+                                               anuncios.voz_limpia(b.get("voz") or {})))
+
+
+@app.route("/api/biblioteca/<int:bid>/audio", rol="lectura")
+def biblioteca_audio(req, bid):
+    from . import biblioteca
+    p = biblioteca.ruta(biblioteca.uno(bid))
+    if not p or not p.is_file():
+        raise HTTPError(404)
+    return send_file(p, "audio/wav")
+
+
+@app.route("/api/biblioteca/<int:bid>/descargar", rol="lectura")
+def biblioteca_descargar(req, bid):
+    from . import biblioteca
+    b = biblioteca.uno(bid)
+    p = biblioteca.ruta(b)
+    if not p or not p.is_file():
+        raise HTTPError(404, "No tiene audio")
+    nombre = (re.sub(r'[\\/:*?"<>|\r\n\t]+', " ", b.get("nombre") or "").strip(" .") or "audio")[:120]
+    nombre = re.sub(r"\s{2,}", " ", nombre) + ".wav"
+    ascii_name = re.sub(r"[^A-Za-z0-9._ -]", "_", nombre)
+    r = send_file(p, "audio/wav")
+    r.headers["Content-Disposition"] = "attachment; filename=\"{}\"; filename*=UTF-8''{}".format(
+        ascii_name, urllib.parse.quote(nombre))
+    return r
 
 
 @app.route("/api/anuncios/voz", ("POST",), rol="operador")

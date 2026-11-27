@@ -1247,3 +1247,7 @@ textarea.pron-ta { position: relative; background: transparent !important; displ
 .an-resp-tit { display: block; margin-top: 10px; font-size: .88rem; }
 .an-urlaj { margin: 8px 0; }
 .an-urlaj summary { cursor: pointer; }
+
+/* ── Biblioteca de voz ──────────────────────────────────────────────────── */
+.bi-bar { margin: 4px 0 12px; }
+.bi-bar input[type=search] { flex: 1; min-width: 180px; }

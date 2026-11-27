@@ -9,6 +9,7 @@ El respaldo es un .tar.gz con:
   logo_*.png|jpg|…       logo de la estación
   fotos/                 fotos de los usuarios
   anuncios/              audios de los anuncios programados
+  biblioteca/            audios de la biblioteca de voz
 
 Se arma mientras se descarga (no ocupa espacio en la tarjeta SD salvo una
 copia de la base de datos). No se respaldan tmp/ ni la bitácora.
@@ -36,7 +37,7 @@ MANIFEST = "aslscan-respaldo.json"
 APP = "aslscan"
 FORMATO = 1
 LOGO_RE = re.compile(r"^logo_[A-Za-z0-9]+\.(png|jpg|webp|gif)$")
-CARPETAS = ("fotos", "anuncios")
+CARPETAS = ("fotos", "anuncios", "biblioteca")
 # Ajustes que describen a ESTE nodo; se conservan al restaurar un respaldo
 # de otro nodo si así se pide. secret_key nunca se toma del respaldo.
 NODE_KEYS = {"backend", "node", "station_name", "logo_file"}

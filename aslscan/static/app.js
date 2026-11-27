@@ -2258,6 +2258,7 @@ async function loadProg() {
   clearTimeout(S.anT);
   progSub(S.progSub);
   if (S.progSub === "alertas") return loadAlertas();
+  if (S.progSub === "biblioteca") return loadBiblioteca();
   try { S.an = await api("api/anuncios"); renderAnuncios(); }
   catch (e) { $("#anList").innerHTML = `<p class="empty">${esc(e.message)}</p>`; }
   // Mientras se ve la pestaña: el estado (esperando canal / al aire) y el próximo se refrescan solos
@@ -2421,10 +2422,12 @@ async function aWav8k(blob, nombre) {
   return { file: new File([dv.buffer], (nombre || "anuncio").replace(/\.[^.]+$/, "") + ".wav", { type: "audio/wav" }), dur: buf.duration };
 }
 
-function anuncioEditor(a) {
+function anuncioEditor(a, base) {
   const d = S.an, nuevo = !a;
   a = a || { nombre: "", tipo: d.voz.lista ? "tts" : "audio", texto: "", dias: "0123456", modo: "horas", horas: [{ h: "09:00", red: false }], antes: [15, 5], evento_id: 0, cada_min: 60,
     desde_h: "08:00", hasta_h: "22:00", una_vez: "", vig_desde: "", vig_hasta: "", destino: "local", activo: true };
+  if (base) Object.assign(a, { nombre: base.nombre, tipo: base.tipo, texto: base.texto || "", voz: base.voz || "",
+    archivo_nombre: base.archivo_nombre || "", duracion: base.duracion || 0 });
   const ed = { tipo: a.tipo, horas: a.horas.map((x) => ({ h: x.h, red: !!x.red })), antes: (a.antes || []).slice(), archivo: null, archivoNombre: a.archivo_nombre || "", dur: a.duracion || 0 };
   const puedeGrabar = !!(window.isSecureContext && navigator.mediaDevices && window.MediaRecorder);
   const chip = ([v, t]) => `<button type="button" class="chip" data-anvar="${esc(v)}" title="${esc(LG(t, AN_VAR_EN[v] || t))}" translate="no">${esc(v)}</button>`;
@@ -2571,6 +2574,7 @@ function anuncioEditor(a) {
   };
   if ($("#anUrlProbar")) { $("#anUrlProbar").onclick = (e) => urlProbar(false, e.currentTarget); $("#anUrlOir").onclick = (e) => urlProbar(true, e.currentTarget); } pintaHoras(); pintaAntes(); red();
   if (!nuevo && a.tipo === "audio") oyeGuardado();
+  if (base && base.tipo === "audio") { prev.src = `api/biblioteca/${base.id}/audio`; prev.classList.remove("hidden"); }
   function oyeGuardado() { prev.src = `api/anuncios/${a.id}/audio?v=${encodeURIComponent(a.modificado)}`; prev.classList.remove("hidden"); }
   $("#anTipo").onclick = (e) => { const b = e.target.closest("[data-tipo]"); if (b) setTipo(b.dataset.tipo); };
   $("#anModo").onclick = (e) => { const b = e.target.closest("[data-modo]"); if (b) setModo(b.dataset.modo); };
@@ -2674,6 +2678,7 @@ function anuncioEditor(a) {
       url: f.url ? f.url.value.trim() : "", url_falla: f.url_falla ? f.url_falla.value : "respaldo",
     };
     if (f.dtmf) datos.dtmf = f.dtmf.value.trim().replace(/^\*/, "").toUpperCase();
+    if (base) datos.biblioteca_id = base.id;
     const fd = new FormData();
     fd.append("datos", JSON.stringify(datos));
     if (ed.tipo === "audio" && ed.archivo) fd.append("archivo", ed.archivo, ed.archivo.name);
@@ -2683,6 +2688,205 @@ function anuncioEditor(a) {
       if (f.dtmf && (datos.dtmf || "") !== (a.dtmf || "")) toast(LG("Código DTMF guardado en rpt.conf: aplica los cambios en Ajustes → DTMF para que funcione", "DTMF code saved to rpt.conf: apply the changes in Settings → DTMF for it to work"));
       closeModal(); loadProg();
     } catch {} finally { busy(b, false); }
+  };
+}
+
+/* ── Programación → Biblioteca de voz (biblioteca.py) ────────────────────── */
+async function loadBiblioteca() {
+  clearTimeout(S.anT);
+  try {
+    if (!S.an) S.an = await api("api/anuncios");
+    const q = new URLSearchParams({ q: S.biQ || "", orden: S.biOrden || "fecha" });
+    S.bi = await api("api/biblioteca?" + q);
+    renderBiblioteca();
+  } catch (e) { $("#biList").innerHTML = `<p class="empty">${esc(e.message)}</p>`; }
+}
+function renderBiblioteca() {
+  const d = S.bi, puede = puedeAnunciar(), asl = S.an && S.an.asl;
+  $("#biCnt").textContent = d.items.length && !S.biQ ? d.items.length : "";
+  $("#biNew").classList.toggle("hidden", !puede);
+  $("#biTxtLbl").classList.toggle("hidden", !puede || !(S.an && S.an.voz.lista));
+  if (!d.items.length) {
+    $("#biList").innerHTML = `<p class="empty">${S.biQ ? LG("Nada coincide con la búsqueda.", "Nothing matches the search.")
+      : LG("La biblioteca está vacía. Guarda aquí audios para usarlos después: en un anuncio, o transmitirlos una vez.", "The library is empty. Keep audio here to use later: in an announcement, or to transmit once.")}</p>`;
+    return;
+  }
+  $("#biList").innerHTML = d.items.map((b) => {
+    const voz = anVozDe(b);
+    return `<div class="card an-card bi-card">
+      <div class="an-top"><h3 translate="no">📚 ${esc(b.nombre)}</h3><span class="an-dur">${fmt(b.duracion)}</span></div>
+      ${b.notas ? `<div class="meta" translate="no">${esc(b.notas)}</div>` : ""}
+      <div class="an-que">${b.tipo === "tts" ? `🗣 <span translate="no">«${esc(b.texto.length > 140 ? b.texto.slice(0, 140) + "…" : b.texto)}»</span>` : `🎵 <span translate="no">${esc(b.archivo_nombre || "audio.wav")}</span>`}</div>
+      ${voz ? `<div class="meta">🎙 ${LG("Voz", "Voice")}: <span translate="no">${esc(anVozNombre(voz))}</span></div>` : ""}
+      <div class="meta muted">${anFecha(b.modificado)}${b.creado_por ? " · " + esc(b.creado_por) : ""}</div>
+      <div class="actions">
+        <button type="button" class="btn sm ro" data-biplay="${b.id}" data-v="${esc(b.modificado)}">▶ ${LG("Escuchar", "Listen")}</button>
+        <a class="btn sm ro" href="api/biblioteca/${b.id}/descargar" download title="${LG("Descargar (WAV 8 kHz)", "Download (8 kHz WAV)")}">⬇</a>
+        ${puede && asl ? `<button type="button" class="btn sm danger-soft" data-biaire="${b.id}">📡 ${LG("Transmitir ahora", "Transmit now")}</button>
+          <button type="button" class="btn sm" data-biprog="${b.id}" title="${LG("Abre un anuncio nuevo con este audio (se copia)", "Opens a new announcement with this audio (it's copied)")}">📢 ${LG("Programar como anuncio", "Schedule as announcement")}</button>` : ""}
+        ${puede ? `<button type="button" class="btn sm" data-biedit="${b.id}">✏️ ${LG("Editar", "Edit")}</button>
+          <button type="button" class="btn sm ghost" data-bidup="${b.id}" title="${LG("Duplicar", "Duplicate")}">⧉</button>
+          <button type="button" class="btn sm ghost" data-bidel="${b.id}" title="${LG("Borrar", "Delete")}">🗑</button>` : ""}
+      </div></div>`;
+  }).join("");
+}
+let biAudio = null;
+$("#biList").addEventListener("click", async (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.biplay) {
+    const L = "▶ " + LG("Escuchar", "Listen");
+    if (biAudio && !biAudio.paused && biAudio.dataset.id === b.dataset.biplay) { biAudio.pause(); b.textContent = L; return; }
+    if (biAudio) biAudio.pause();
+    $$("#biList [data-biplay]").forEach((x) => (x.textContent = L));
+    biAudio = new Audio(`api/biblioteca/${b.dataset.biplay}/audio?v=${encodeURIComponent(b.dataset.v)}`);
+    biAudio.dataset.id = b.dataset.biplay; biAudio.onended = () => (b.textContent = L);
+    b.textContent = "⏸ " + LG("Detener", "Stop");
+    biAudio.play().catch((err) => { toast(err.message, true); b.textContent = L; });
+    return;
+  }
+  const id = +(b.dataset.biaire || b.dataset.biprog || b.dataset.biedit || b.dataset.bidup || b.dataset.bidel);
+  const it = (S.bi.items || []).find((x) => x.id === id); if (!it) return;
+  if (b.dataset.biedit) return bibEditor(it);
+  if (b.dataset.biprog) { progSub("anuncios"); loadProg(); return anuncioEditor(null, it); }
+  if (b.dataset.bidup) { await run(() => api(`api/biblioteca/${id}/duplicar`, { method: "POST" }), LG("Duplicado", "Duplicated")).catch(() => {}); return loadBiblioteca(); }
+  if (b.dataset.bidel) {
+    if (!(await confirmBox(LG(`¿Borrar «${it.nombre}» de la biblioteca? Los anuncios que ya lo usan no cambian (tienen su copia).`, `Delete «${it.nombre}» from the library? Announcements already using it don't change (they have their own copy).`), LG("Borrar", "Delete")))) return;
+    await run(() => api("api/biblioteca/" + id, { method: "DELETE" }), LG("Borrado", "Deleted")).catch(() => {});
+    return loadBiblioteca();
+  }
+  if (b.dataset.biaire) {
+    const destino = await anElegirVia({ nombre: it.nombre, destino: "local" });
+    if (!destino) return;
+    await run(() => api(`api/biblioteca/${id}/ahora`, { method: "POST", json: { destino } }), LG("En camino al aire", "On its way to air")).catch(() => {});
+  }
+});
+$("#biQ").addEventListener("input", (e) => { clearTimeout(S.biQT); S.biQT = setTimeout(() => { S.biQ = e.target.value.trim(); loadBiblioteca(); }, 300); });
+$("#biOrden").onchange = (e) => { S.biOrden = e.target.value; loadBiblioteca(); };
+$("#biNew").onclick = () => bibEditor(null);
+$("#biTxtMany").onchange = async (e) => {
+  const files = [...e.target.files]; e.target.value = ""; if (!files.length) return;
+  const max = (S.bi && S.bi.max_lote) || 20;
+  if (files.length > max) return toast(LG(`Máximo ${max} archivos a la vez`, `${max} files at most`), true);
+  try {
+    const archivos = [];
+    for (const f of files) archivos.push({ nombre: f.name, texto: await leerTxt(f) });
+    const r = await run(() => api("api/biblioteca/txt", { method: "POST", json: { archivos } }), LG(`Generando ${files.length} audios…`, `Generating ${files.length} audios…`));
+    const mal = r.resultados.filter((x) => !x.ok);
+    toast(LG(`${r.resultados.length - mal.length} agregados`, `${r.resultados.length - mal.length} added`) + (mal.length ? " · ⚠ " + mal.map((x) => x.nombre + ": " + x.error).join(" · ") : ""), !!mal.length);
+  } catch (err) { toast(err.message, true); }
+  loadBiblioteca();
+};
+function bibEditor(b) {
+  const d = S.an, nuevo = !b;
+  b = b || { nombre: "", notas: "", tipo: d.voz.lista ? "tts" : "audio", texto: "", voz: "" };
+  const ed = { tipo: b.tipo, archivo: null, archivoNombre: b.archivo_nombre || "", dur: b.duracion || 0, voz: Object.assign({}, anVozDe(b) || {}) };
+  const max = (S.bi && S.bi.max_seg) || 170, maxC = d.max_chars || 2000;
+  const puedeGrabar = !!(window.isSecureContext && navigator.mediaDevices && window.MediaRecorder);
+  const vars = (d.voz.variables || []).map(([v, t]) => `<button type="button" class="chip" data-anvar="${esc(v)}" title="${esc(LG(t, AN_VAR_EN[v] || t))}" translate="no">${esc(v)}</button>`).join("");
+  openModal(nuevo ? LG("Agregar a la biblioteca", "Add to the library") : LG("Editar audio de la biblioteca", "Edit library audio"), `<form id="biForm" class="an-form" autocomplete="off">
+    <label>${LG("Nombre", "Name")}<input name="nombre" maxlength="80" required value="${esc(b.nombre)}" placeholder="${LG("Bienvenida a la red", "Net welcome")}"></label>
+    <label>${LG("Notas (opcional)", "Notes (optional)")}<input name="notas" maxlength="500" value="${esc(b.notas || "")}"></label>
+    <div class="an-sec"><b>${LG("Qué dice", "What it says")}</b>
+      <div class="seg" id="biTipo">
+        <button type="button" data-tipo="tts">🗣 ${LG("Texto → voz", "Text → voice")}</button>
+        <button type="button" data-tipo="audio">🎵 ${LG("Subir audio", "Upload audio")}</button>
+        ${puedeGrabar ? `<button type="button" data-tipo="grabar">🎙 ${LG("Grabar aquí", "Record here")}</button>` : ""}
+      </div>
+      <div data-pane="tts"><textarea name="texto" rows="4" maxlength="${maxC}">${esc(b.texto || "")}</textarea>
+        <div class="row gap wrap an-txtbar"><label class="btn sm ghost" style="margin:0">📄 ${LG("Cargar .txt", "Load .txt")}<input type="file" id="anTxt" accept=".txt,text/plain" hidden></label><small class="muted" id="anCuenta"></small></div>
+        <div class="an-vars"><span class="muted">${LG("Variables", "Variables")}:</span> ${vars}</div>
+        ${d.voz.motor === "azure" ? `<details class="an-vozsel" id="anVozSel" ${anVozDe(b) ? "open" : ""}><summary>🎙 ${LG("Voz", "Voice")}: <span id="anVozRes"></span></summary>
+          <div class="grid2"><label>${LG("Voz", "Voice")}<select id="anVozV"><option value="">${LG("La de Ajustes", "The one in Settings")}</option></select></label>
+            <label>${LG("Estilo", "Style")}<select id="anVozE"><option value="general">general</option></select></label>
+            <label>${LG("Velocidad (%)", "Speed (%)")}<input id="anVozR" type="number" min="50" max="200"></label>
+            <label>${LG("Tono (Hz)", "Pitch (Hz)")}<input id="anVozP" type="number" min="-50" max="50"></label></div></details>` : ""}
+        <div class="row gap wrap"><button type="button" class="btn sm" id="anVozPlay">▶ ${LG("Escuchar", "Listen")}</button><span class="muted" id="anVozMsg">${esc(d.voz.nombre || "")}</span></div></div>
+      <div data-pane="audio" class="hidden"><label class="btn sm" style="margin:0">📁 ${LG("Elegir archivo", "Choose file")}<input type="file" id="biFile" accept="audio/*" hidden></label>
+        <span class="muted" id="biFileMsg">${ed.archivoNombre ? esc(ed.archivoNombre) + " · " + fmt(ed.dur) : LG("MP3, WAV, M4A u OGG", "MP3, WAV, M4A or OGG")}</span></div>
+      <div data-pane="grabar" class="hidden"><button type="button" class="btn sm" id="biRec">⏺ ${LG("Grabar", "Record")}</button> <span class="muted" id="biRecMsg">${LG("Habla cerca del micrófono", "Speak close to the microphone")}</span></div>
+      <audio id="anPrev" controls class="hidden"></audio>
+      <small class="muted">${LG(`Máximo ${max} s. Si el texto lleva variables ({hora}, {fecha_larga}…), la voz se hace otra vez al transmitirse.`, `${max} s maximum. If the text has variables ({hora}, {fecha_larga}…), the voice is made again when it's transmitted.`)}</small>
+    </div>
+    <div class="modal-actions"><button type="button" class="btn" id="biCancel">${LG("Cancelar", "Cancel")}</button><button class="btn primary" id="biSave">${LG("Guardar", "Save")}</button></div>
+  </form>`);
+  const f = $("#biForm"), prev = $("#anPrev");
+  const oye = (url) => { prev.src = url; prev.classList.remove("hidden"); prev.play().catch(() => {}); };
+  const setTipo = (t) => {
+    ed.tipo = t === "tts" ? "tts" : "audio";
+    $$("#biTipo button").forEach((x) => x.classList.toggle("active", x.dataset.tipo === t));
+    $$("#biForm [data-pane]").forEach((p) => p.classList.toggle("hidden", p.dataset.pane !== t));
+  };
+  setTipo(b.tipo === "audio" ? "audio" : "tts");
+  if (!nuevo && b.tipo === "audio") { prev.src = `api/biblioteca/${b.id}/audio?v=${encodeURIComponent(b.modificado)}`; prev.classList.remove("hidden"); }
+  $("#biTipo").onclick = (e) => { const x = e.target.closest("[data-tipo]"); if (x) setTipo(x.dataset.tipo); };
+  const cuenta = () => { const n = f.texto.value.length; $("#anCuenta").textContent = `${n.toLocaleString()} / ${maxC.toLocaleString()} ${LG("caracteres", "characters")}`; };
+  f.texto.addEventListener("input", cuenta); cuenta();
+  f.addEventListener("click", (e) => {
+    const x = e.target.closest(".an-vars [data-anvar]"); if (!x) return;
+    const t = f.texto, p = t.selectionStart ?? t.value.length;
+    t.value = t.value.slice(0, p) + x.dataset.anvar + t.value.slice(t.selectionEnd ?? p); t.focus(); cuenta();
+  });
+  $("#anTxt").onchange = async (e) => {
+    const file = e.target.files[0]; e.target.value = ""; if (!file) return;
+    try {
+      let t = await leerTxt(file);
+      if (t.length > maxC) { toast(LG(`Se cortó a ${maxC} caracteres`, `Cut to ${maxC} characters`), true); t = t.slice(0, maxC); }
+      f.texto.value = t; if (!f.nombre.value.trim()) f.nombre.value = file.name.replace(/\.[^.]+$/, "").slice(0, 80);
+      cuenta(); setTipo("tts");
+    } catch (err) { toast(err.message, true); }
+  };
+  if ($("#anVozSel")) anVozPanel(ed, d);
+  $("#anVozPlay").onclick = async () => {
+    const x = $("#anVozPlay"); busy(x, true, LG("Generando…", "Generating…"));
+    try { const r = await api("api/anuncios/voz", { method: "POST", json: { texto: f.texto.value, voz: anVozDatos(ed) } });
+      $("#anVozMsg").textContent = fmt(r.duracion) + (r.duracion > max ? " · ⚠ " + LG("muy largo", "too long") : ""); oye(r.url);
+    } catch (err) { toast(err.message, true); } finally { busy(x, false); }
+  };
+  $("#biFile").onchange = async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    $("#biFileMsg").textContent = LG("Convirtiendo…", "Converting…");
+    try {
+      const r = await aWav8k(file, file.name);
+      if (r.dur > max + 0.5) throw new Error(LG(`Dura ${Math.round(r.dur)} s; el máximo es ${max} s`, `It's ${Math.round(r.dur)} s long; the maximum is ${max} s`));
+      ed.archivo = r.file; ed.archivoNombre = file.name; ed.dur = r.dur;
+      $("#biFileMsg").textContent = `${file.name} · ${fmt(r.dur)}`; oye(URL.createObjectURL(r.file));
+    } catch (err) { $("#biFileMsg").textContent = "⚠ " + err.message; ed.archivo = null; }
+  };
+  if (puedeGrabar) $("#biRec").onclick = async () => {
+    const x = $("#biRec");
+    if (ed.rec) { ed.rec.stop(); return; }
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+    catch { toast(LG("No hay permiso para usar el micrófono", "No permission to use the microphone"), true); return; }
+    const trozos = [], rec = new MediaRecorder(stream); ed.rec = rec;
+    const t0 = Date.now(), reloj = setInterval(() => {
+      const sg = (Date.now() - t0) / 1000;
+      $("#biRecMsg").textContent = `⏺ ${fmt(sg)} ${LG("de", "of")} ${max} s`;
+      if (sg >= max) rec.stop();
+    }, 250);
+    rec.ondataavailable = (ev) => ev.data.size && trozos.push(ev.data);
+    rec.onstop = async () => {
+      clearInterval(reloj); stream.getTracks().forEach((t) => t.stop()); ed.rec = null;
+      x.textContent = "⏺ " + LG("Grabar otra vez", "Record again");
+      try {
+        const r = await aWav8k(new Blob(trozos, { type: rec.mimeType }), "grabacion");
+        ed.archivo = r.file; ed.archivoNombre = LG("Grabación", "Recording") + " " + new Date().toLocaleDateString(); ed.dur = r.dur;
+        $("#biRecMsg").textContent = `${LG("Grabado", "Recorded")} · ${fmt(r.dur)}`; oye(URL.createObjectURL(r.file));
+      } catch (err) { $("#biRecMsg").textContent = "⚠ " + err.message; }
+    };
+    rec.start(); x.textContent = "⏹ " + LG("Terminar", "Stop");
+  };
+  $("#biCancel").onclick = () => { if (ed.rec) ed.rec.stop(); closeModal(); };
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData();
+    fd.append("datos", JSON.stringify({ nombre: f.nombre.value, notas: f.notas.value, tipo: ed.tipo, texto: f.texto.value, voz: anVozDatos(ed) }));
+    if (ed.tipo === "audio" && ed.archivo) fd.append("archivo", ed.archivo, ed.archivo.name);
+    const x = $("#biSave"); busy(x, true, ed.tipo === "tts" ? LG("Generando voz…", "Generating voice…") : LG("Guardando…", "Saving…"));
+    try {
+      await run(() => api(nuevo ? "api/biblioteca" : "api/biblioteca/" + b.id, { method: nuevo ? "POST" : "PUT", form: fd }), LG("Guardado en la biblioteca", "Saved to the library"));
+      closeModal(); loadBiblioteca();
+    } catch {} finally { busy(x, false); }
   };
 }
 
@@ -2871,11 +3075,12 @@ $("#btnVozTest").onclick = async () => {
 /* ── Programación → Alertas (clima, pronóstico y sismos) ─────────────────── */
 S.progSub = (() => { try { return localStorage.getItem("aslscan.progsub") || "anuncios"; } catch { return "anuncios"; } })();
 function progSub(k) {
-  S.progSub = k === "alertas" ? "alertas" : "anuncios";
+  S.progSub = k === "alertas" || k === "biblioteca" ? k : "anuncios";
   try { localStorage.setItem("aslscan.progsub", S.progSub); } catch {}
   $$("#progTabs [data-prog]").forEach((b) => { b.classList.toggle("active", b.dataset.prog === S.progSub); b.setAttribute("aria-selected", b.dataset.prog === S.progSub); });
   $("#anView").classList.toggle("hidden", S.progSub !== "anuncios");
   $("#alView").classList.toggle("hidden", S.progSub !== "alertas");
+  $("#biView").classList.toggle("hidden", S.progSub !== "biblioteca");
   $("#btnNewAnuncio").classList.toggle("hidden", S.progSub !== "anuncios" || !(S.an && S.an.asl && puedeAnunciar()));
 }
 $("#progTabs").onclick = (e) => { const b = e.target.closest("[data-prog]"); if (b) { progSub(b.dataset.prog); loadProg(); } };
