@@ -42,6 +42,22 @@ CARPETAS = ("fotos", "anuncios", "biblioteca")
 # de otro nodo si así se pide. secret_key nunca se toma del respaldo.
 NODE_KEYS = {"backend", "node", "station_name", "logo_file"}
 GUARDAR = 2           # copias "antes-de-restaurar-*" que se conservan
+# Claves que no van en un respaldo «sin claves» (al restaurarlo se conservan las del nodo).
+# secret_key no va nunca: no se usa al restaurar.
+CLAVES = set(settings.SECRET_KEYS) - {"secret_key"}
+
+
+def ajustes_para_respaldo(sin_claves):
+    """settings.json como va en el respaldo."""
+    cfg = dict(settings.load())
+    cfg.pop("secret_key", None)
+    quitadas = []
+    if sin_claves:
+        for k in sorted(CLAVES):
+            if cfg.get(k):
+                quitadas.append(k)
+            cfg.pop(k, None)
+    return json.dumps(cfg, indent=2, ensure_ascii=False).encode("utf-8"), quitadas
 
 
 # ── Utilidades ────────────────────────────────────────────────────────────────
@@ -136,8 +152,9 @@ class _GzQueue:
         self._put(self.z.flush())
 
 
-def stream(con_audios, usuario):
-    """Generador con el .tar.gz; arma el archivo en un hilo aparte."""
+def stream(con_audios, usuario, sin_claves=False):
+    """Generador con el .tar.gz; arma el archivo en un hilo aparte.
+    sin_claves: sin las claves de los servicios (voz, Telegram, nube…) ni rclone.conf."""
     w = _GzQueue()
     END = object()
     err = []
@@ -155,7 +172,7 @@ def stream(con_audios, usuario):
             man = {"app": APP, "formato": FORMATO, "version": VERSION,
                    "fecha": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                    "nodo": cfg.get("node") or "", "estacion": cfg.get("station_name") or "",
-                   "incluye_audios": bool(con_audios), "creado_por": usuario}
+                   "incluye_audios": bool(con_audios), "creado_por": usuario, "sin_claves": bool(sin_claves)}
             with tarfile.open(fileobj=w, mode="w|", format=tarfile.GNU_FORMAT) as tf:
                 data = json.dumps(man, indent=2, ensure_ascii=False).encode("utf-8")
                 ti = tarfile.TarInfo(MANIFEST)
@@ -163,8 +180,11 @@ def stream(con_audios, usuario):
                 tf.addfile(ti, io.BytesIO(data))
                 tf.add(str(snap), arcname="aslscan.db")
                 if paths.settings_file().is_file():
-                    tf.add(str(paths.settings_file()), arcname="settings.json")
-                if (paths.data_dir() / "rclone.conf").is_file():
+                    data, _q = ajustes_para_respaldo(sin_claves)
+                    ti = tarfile.TarInfo("settings.json")
+                    ti.size, ti.mtime, ti.mode = len(data), int(time.time()), 0o600
+                    tf.addfile(ti, io.BytesIO(data))
+                if not sin_claves and (paths.data_dir() / "rclone.conf").is_file():
                     tf.add(str(paths.data_dir() / "rclone.conf"), arcname="rclone.conf")
                 if logo and LOGO_RE.match(logo) and (paths.data_dir() / logo).is_file():
                     tf.add(str(paths.data_dir() / logo), arcname=logo)
@@ -285,6 +305,12 @@ def restore(archivo, conservar_nodo, usuario):
             except Exception:
                 raise ValueError("Los ajustes del respaldo están dañados")
         nuevo["secret_key"] = cur.get("secret_key", "")
+        # Respaldo sin claves (o una clave que no venía): se queda la que ya tiene este nodo
+        conservadas = []
+        for k in CLAVES:
+            if not nuevo.get(k) and cur.get(k):
+                nuevo[k] = cur[k]
+                conservadas.append(k)
         if conservar_nodo:
             for k in list(cur):
                 if k in NODE_KEYS or k.startswith("irlp_"):
@@ -337,7 +363,8 @@ def restore(archivo, conservar_nodo, usuario):
         log.warning("Respaldo restaurado por %s: del nodo %s, %s (v%s); lo anterior en %s",
                     usuario, man.get("nodo") or "?", man.get("fecha"), man.get("version"), old.name)
         return {"nodo": man.get("nodo") or "", "fecha": man.get("fecha") or "",
-                "version": man.get("version") or "", "audios": None, "sonidos": 0, "anterior": old.name}
+                "version": man.get("version") or "", "sin_claves": bool(man.get("sin_claves")),
+                "claves_conservadas": len(conservadas), "audios": None, "sonidos": 0, "anterior": old.name}
     finally:
         shutil.rmtree(str(stage), ignore_errors=True)
 

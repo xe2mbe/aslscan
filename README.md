@@ -83,7 +83,7 @@ ASLSCAN can change the node: an administrator can edit rpt.conf (tones, DTMF), a
 
 1. **Long, unique passwords** for administrators; give **operator** users for day-to-day use.
 2. **Always https** (`https://<node>/aslscan/`, through the node's Apache) or an SSH tunnel (`ssh -L 8095:127.0.0.1:8095 user@node`). Never forward port 8095 on the router. With `--listen-all` or on IRLP the installer opens 8095 only to the local network (10.x, 172.16–31.x, 192.168.x), and the page warns when it's opened over plain http.
-3. **Every backup is a secret**: it carries the voice, Telegram and weather keys.
+3. **Every backup is a secret**: it carries the voice, Telegram and weather keys. Or make it **🔑 without keys** (Settings → Backup: a checkbox on the download, and one per destination of the automatic backup, on by default for the cloud and Telegram): it leaves out the service keys and the cloud access, and when it's restored the node keeps its own. The node's `secret_key` never goes in a backup.
 4. **Read before you run**: download the release tag, check its SHA-256 (it's in the release notes) and read `install.sh` instead of `curl | sudo bash`.
 5. **Asterisk's AMI (port 5038) must not be reachable from the internet**. It isn't part of ASLSCAN, but **Health** warns if it listens beyond 127.0.0.1.
 
@@ -279,7 +279,7 @@ ASLSCAN puede cambiar el nodo: un administrador edita rpt.conf (tonos, DTMF) y u
 
 1. **Contraseñas largas y únicas** para los administradores; usuarios **operador** para el día a día.
 2. **Siempre por https** (`https://<nodo>/aslscan/`, con el Apache del nodo) o por túnel SSH (`ssh -L 8095:127.0.0.1:8095 usuario@nodo`). Nunca reenvíes el 8095 en el router. Con `--listen-all` o en IRLP el instalador abre el 8095 solo a la red local (10.x, 172.16–31.x, 192.168.x), y la página avisa si entras por http sin cifrar.
-3. **Cada respaldo es secreto**: lleva las claves de la voz, de Telegram y del clima.
+3. **Cada respaldo es secreto**: lleva las claves de la voz, de Telegram y del clima. O hazlo **🔑 sin claves** (Ajustes → Respaldo: una casilla en la descarga y una por destino del respaldo automático, marcada de fábrica para la nube y Telegram): no lleva las claves de los servicios ni el acceso a la nube, y al restaurarlo el nodo conserva las suyas. La `secret_key` del nodo nunca va en un respaldo.
 4. **Lee antes de correr**: baja la etiqueta del release, revisa su SHA-256 (viene en las notas del release) y lee `install.sh` en lugar de `curl | sudo bash`.
 5. **El AMI de Asterisk (puerto 5038) no debe verse desde internet**. No es de ASLSCAN, pero **Salud** avisa si escucha fuera de 127.0.0.1.
 

@@ -455,17 +455,20 @@
                   <label>Código de acceso<input type="password" name="ab_node_token" data-secret autocomplete="new-password"></label>
                   <input type="hidden" name="ab_node_pin">
                   <div class="row gap wrap"><button type="button" class="btn sm" id="btnAbProbe">Probar conexión</button><span class="muted" id="abProbeMsg"></span></div>
+                  <label class="check bk-sc" title="Sin las claves de Azure, ElevenLabs, Telegram, la estación del clima, los códigos de respaldo y del hub, ni el acceso a la nube. Al restaurarlo, el nodo conserva las suyas."><input type="checkbox" name="ab_sin_claves_nodo"> 🔑 Sin claves <small>(si es otro nodo tuyo, déjalo con claves: así se puede restaurar completo)</small></label>
                 </div>
                 <div class="bk-card">
                   <label class="check bk-title"><input type="checkbox" name="ab_cloud_on"> ☁️ A Google Drive u OneDrive</label>
                   <div id="abCloud"></div>
                   <label>Carpeta en la nube<input name="ab_cloud_folder" placeholder="ASLSCAN"><small>Dentro de ella se crea una carpeta con el número de este nodo.</small></label>
                   <label>Respaldos a conservar en la nube<input type="number" name="ab_keep" min="1" max="60"></label>
+                  <label class="check bk-sc" title="Sin las claves de Azure, ElevenLabs, Telegram, la estación del clima, los códigos de respaldo y del hub, ni el acceso a la nube. Al restaurarlo, el nodo conserva las suyas."><input type="checkbox" name="ab_sin_claves_nube"> 🔑 Sin claves <small>(recomendado)</small></label>
                 </div>
                 <div class="bk-card">
                   <label class="check bk-title"><input type="checkbox" name="ab_tg_on"> 📲 Por Telegram a los administradores</label>
                   <p class="muted bk-note">Cada día te llega el respaldo (pesa poco) en tu chat privado con el bot. Nunca va al grupo de avisos: lleva claves y contraseñas cifradas.</p>
                   <div id="abTg" class="muted bk-note"></div>
+                  <label class="check bk-sc" title="Sin las claves de Azure, ElevenLabs, Telegram, la estación del clima, los códigos de respaldo y del hub, ni el acceso a la nube. Al restaurarlo, el nodo conserva las suyas."><input type="checkbox" name="ab_sin_claves_tg"> 🔑 Sin claves <small>(recomendado)</small></label>
                 </div>
               </div>
             </div>
@@ -478,6 +481,7 @@
                   <p class="muted bk-note">Guarda en tu computadora los usuarios, los favoritos, los ajustes (incluido el token de Telegram), el logo y las fotos. Sirve para cambiar la tarjeta SD o pasar todo a otro nodo.</p>
                   <div class="muted" id="bkSize" style="font-size:.84rem;margin:4px 0 12px"></div>
                   <div class="row gap wrap"><a class="btn primary" id="btnBackup" href="api/respaldo/descargar">⬇ Descargar respaldo</a></div>
+                  <label class="check bk-sc"><input type="checkbox" id="bkSinClaves"> 🔑 Sin claves <small class="muted">(Azure, ElevenLabs, Telegram, clima, códigos y acceso a la nube; al restaurarlo, el nodo conserva las suyas)</small></label>
                   <p class="muted" style="font-size:.84rem">⚠️ El archivo contiene contraseñas (cifradas) y claves; guárdalo en un lugar seguro y no lo compartas.</p>
                 </div>
                 <div class="bk-card">

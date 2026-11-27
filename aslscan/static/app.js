@@ -793,6 +793,12 @@ async function loadRespaldo() {
   $("#bkSize").textContent = `Tamaño aproximado: ${mb(d.base)}`;
 }
 $("#btnBackup").onclick = () => toast("Preparando el respaldo; la descarga empieza en unos segundos…");
+$("#bkSinClaves").onchange = (e) => {
+  const b = $("#btnBackup");
+  if (!b.dataset.base) b.dataset.base = b.getAttribute("href");
+  const base = b.dataset.base;
+  b.setAttribute("href", e.target.checked ? base + (base.includes("?") ? "&" : "?") + "sin_claves=1" : base);
+};
 $("#btnRestore").onclick = async () => {
   const f = $("#bkFile").files[0];
   if (!f) { toast("Elige el archivo de respaldo", true); return; }
@@ -816,7 +822,7 @@ $("#btnRestore").onclick = async () => {
       busy(btn, false); msg.textContent = "";
       toast((r && r.error) || `Error ${xhr.status}`, true); return;
     }
-    msg.textContent = `✅ Restaurado (nodo ${r.nodo || "?"}, ${r.fecha}). Reiniciando ASLSCAN…`;
+    msg.textContent = `✅ Restaurado (nodo ${r.nodo || "?"}, ${r.fecha}). Reiniciando ASLSCAN…` + (r.sin_claves ? ` · 🔑 ${LG("El respaldo venía sin claves", "The backup came without keys")}${r.claves_conservadas ? LG(`: se conservaron ${r.claves_conservadas} de este nodo`, `: ${r.claves_conservadas} kept from this node`) : LG(": ponlas en Ajustes", ": set them in Settings")}` : "");
     setTimeout(() => location.reload(), 9000);
   };
   xhr.onerror = () => { busy(btn, false); msg.textContent = ""; toast("Se cortó la conexión al subir el respaldo", true); };

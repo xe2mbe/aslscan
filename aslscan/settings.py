@@ -22,6 +22,9 @@ DEFAULTS = {
     "tg_on_health": True,
     "tg_on_nodes": True,
     "ab_tg_on": False,
+    "ab_sin_claves_nodo": False,   # respaldo automático sin claves: a otro nodo (tuyo) con claves de fábrica
+    "ab_sin_claves_nube": True,    # a la nube y por Telegram, sin claves de fábrica
+    "ab_sin_claves_tg": True,
 
     # Panel de nodos (hub.py)
     "hub_on": False,              # mandar el estado de este nodo a un hub cada minuto
