@@ -32,6 +32,8 @@ def init_app():
     auth.init()
     autobackup.init()
     anuncios.init()
+    from . import historial
+    historial.init()
     anuncios.emisor.start()
     from . import hub
     hub.init()
@@ -379,6 +381,16 @@ def sesiones_get(req):
     return jsonr(sessions.status(settings.load(), req.query.get("nodo")))
 
 
+@app.route("/api/sesiones/historial")
+def sesiones_historial(req):
+    from . import historial
+    try:
+        dias = int(req.query.get("dias") or 1)
+    except ValueError:
+        dias = 1
+    return jsonr(historial.listar(dias, req.query.get("nodo") or ""))
+
+
 @app.route("/api/sesiones/<accion>", ("POST",))
 def sesiones_accion(req, accion):
     b = req.json()
@@ -389,7 +401,8 @@ def sesiones_accion(req, accion):
         acc = "desconectar" if destino else "desconectar_todo"
     else:
         raise HTTPError(404)
-    cmd = sessions.action(settings.load(), acc, destino, b.get("modo") or "transceptor", b.get("nodo"))
+    cmd = sessions.action(settings.load(), acc, destino, b.get("modo") or "transceptor", b.get("nodo"),
+                          origen="Dashboard · " + req.user["usuario"])
     log.info("Sesiones: %s", cmd)
     return ok(comando=cmd)
 
