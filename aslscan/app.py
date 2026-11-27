@@ -10,6 +10,7 @@ import re
 import shutil
 import threading
 import time
+import urllib.parse
 import uuid
 from pathlib import Path
 
@@ -534,6 +535,7 @@ def tonos_aplicar(req):
 
 # ── Ajustes ──────────────────────────────────────────────────────────────────
 NUM_KEYS = {"ab_keep": int, "ab_recv_keep": int, "hub_alerta_min": int, "azure_rate": int, "azure_pitch": int,
+            "anuncio_max_seg": int, "anuncio_max_chars": int,
             "eleven_stability": int, "eleven_similarity": int, "eleven_speed": int}
 BOOL_KEYS = {"rc_on", "tg_enabled", "tg_on_backup", "tg_on_health", "tg_bot_on", "ab_tg_on", "hub_on", "tg_on_nodes",
              "ab_enabled", "ab_node_on", "ab_cloud_on", "al_clima_on", "al_pron_on", "al_pron_tormenta", "al_sismo_on"}
@@ -585,6 +587,12 @@ def ajustes_save(req):
         upd["azure_region"] = re.sub(r"[^a-z0-9]", "", upd["azure_region"].lower())
     if upd.get("tts_engine") not in (None, "", "azure", "elevenlabs", "piper", "espeak"):
         raise ValueError("Motor de voz inválido")
+    lo, hi = anuncios.MAX_SEG_RANGO
+    if "anuncio_max_seg" in upd and not lo <= upd["anuncio_max_seg"] <= hi:
+        raise ValueError("Duración máxima de un anuncio: de {} a {} s".format(lo, hi))
+    lo, hi = anuncios.MAX_CHARS_RANGO
+    if "anuncio_max_chars" in upd and not lo <= upd["anuncio_max_chars"] <= hi:
+        raise ValueError("Caracteres máximos de un anuncio: de {} a {}".format(lo, hi))
     if "azure_rate" in upd and not 50 <= upd["azure_rate"] <= 200:
         raise ValueError("Velocidad de la voz: de 50 a 200 %")
     if "azure_pitch" in upd and not -50 <= upd["azure_pitch"] <= 50:
@@ -725,6 +733,23 @@ def anuncios_audio(req, aid):
     return send_file(p, "audio/wav")
 
 
+@app.route("/api/anuncios/<int:aid>/descargar")
+def anuncios_descargar(req, aid):
+    """El WAV del anuncio (8 kHz, el que sale al aire) con el nombre del anuncio."""
+    a = anuncios.uno(aid)
+    p = anuncios.ruta(a)
+    if not p or not p.is_file():
+        raise HTTPError(404, "El anuncio no tiene audio")
+    nombre = (re.sub(r'[\\/:*?"<>|\r\n\t]+', " ", a.get("nombre") or "").strip(" .") or "anuncio")[:120]
+    nombre = re.sub(r"\s{2,}", " ", nombre) + ".wav"
+    ascii_name = re.sub(r"[^A-Za-z0-9._ -]", "_", nombre)
+    r = send_file(p, "audio/wav")
+    r.headers["Content-Disposition"] = "attachment; filename=\"{}\"; filename*=UTF-8''{}".format(
+        ascii_name, urllib.parse.quote(nombre))
+    log.info("%s descargó el anuncio «%s»", req.user["usuario"], a["nombre"])
+    return r
+
+
 @app.route("/api/anuncios/voz", ("POST",), rol="operador")
 def anuncios_voz(req):
     """Escuchar el texto con la voz configurada antes de guardar."""
@@ -732,8 +757,9 @@ def anuncios_voz(req):
     cfg = settings.load()
     if isinstance(b.get("diccionario"), list):         # probar el diccionario antes de guardarlo
         cfg = dict(cfg, pron_dict=pronuncia.normalizar(b["diccionario"]))
-    nombre, dicho, dur = anuncios.vista_previa(str(b.get("texto") or "")[:2000], cfg)
-    return ok(url="api/tmp/" + nombre, texto=dicho, duracion=round(dur, 1), max_seg=anuncios.MAX_SEG)
+    voz = anuncios.voz_limpia(b.get("voz") or {})
+    nombre, dicho, dur = anuncios.vista_previa(str(b.get("texto") or "")[:anuncios.max_chars(cfg)], cfg, voz)
+    return ok(url="api/tmp/" + nombre, texto=dicho, duracion=round(dur, 1), max_seg=anuncios.max_seg(cfg))
 
 
 @app.route("/api/tmp/<name>")
@@ -781,10 +807,27 @@ def pronuncia_guardar(req):
     return ok(lista=nueva, secciones=[], anuncios=ans)
 
 
+_voces_cache = {"t": 0.0, "key": "", "voces": []}
+
+
+@app.route("/api/anuncios/voces", rol="operador")
+def anuncios_voces(req):
+    """Voces de Azure con la clave guardada, para elegir la voz de un anuncio (1 h en memoria)."""
+    cfg = settings.load()
+    key, region = (cfg.get("azure_key") or "").strip(), (cfg.get("azure_region") or "").strip()
+    if not key or not region:
+        raise ValueError("Falta la clave o la región de Azure (Ajustes → Voz)")
+    marca = region + ":" + key[-6:]
+    if _voces_cache["key"] != marca or time.time() - _voces_cache["t"] > 3600 or not _voces_cache["voces"]:
+        _voces_cache.update(voces=tts.azure_voces(key, region), key=marca, t=time.time())
+    return jsonr({"voces": _voces_cache["voces"]})
+
+
 @app.route("/api/voz", rol="lectura")
 def voz_info(req):
     cfg = settings.load()
-    return jsonr({"motores": tts.motores(), "motor": tts.motor(cfg), "lista": tts.configurado(cfg),
+    return jsonr({"tot_s": anuncios.tot_nodo(cfg), "max_seg_rango": anuncios.MAX_SEG_RANGO,
+                  "max_chars_rango": anuncios.MAX_CHARS_RANGO, "motores": tts.motores(), "motor": tts.motor(cfg), "lista": tts.configurado(cfg),
                   "nombres": tts.NOMBRES, "azure_key_set": bool(cfg.get("azure_key")),
                   "eleven_key_set": bool(cfg.get("eleven_key"))})
 

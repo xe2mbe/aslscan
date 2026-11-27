@@ -32,12 +32,105 @@ from . import backends, clima, db, paths, sessions, settings, tts
 
 log = logging.getLogger("aslscan.anuncios")
 
-MAX_SEG = 60                 # duración máxima de un anuncio
+MAX_SEG = 60                 # duración máxima de un anuncio (de fábrica; Ajustes → Voz la cambia)
+MAX_SEG_RANGO = (30, 170)    # lo que se puede elegir: 170 s cabe en un TOT de 3 min
+MAX_CHARS = 2000             # caracteres del texto (de fábrica)
+MAX_CHARS_RANGO = (200, 4000)
+VOZ_KEYS = ("azure_voice", "azure_style", "azure_rate", "azure_pitch")   # voz propia de un anuncio
 ESPERA_MAX = 300             # s que se espera a que el canal se libere
 SILENCIO = 3                 # s seguidos sin actividad para considerar el canal libre
 BITACORA_MAX = 300
 HORA_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 FECHA_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def max_seg(cfg=None):
+    cfg = cfg if cfg is not None else settings.load()
+    try:
+        v = int(cfg.get("anuncio_max_seg") or MAX_SEG)
+    except (TypeError, ValueError):
+        v = MAX_SEG
+    return max(MAX_SEG_RANGO[0], min(MAX_SEG_RANGO[1], v))
+
+
+def max_chars(cfg=None):
+    cfg = cfg if cfg is not None else settings.load()
+    try:
+        v = int(cfg.get("anuncio_max_chars") or MAX_CHARS)
+    except (TypeError, ValueError):
+        v = MAX_CHARS
+    return max(MAX_CHARS_RANGO[0], min(MAX_CHARS_RANGO[1], v))
+
+
+def tot_nodo(cfg=None):
+    """TOT del nodo en segundos (totime de rpt.conf, en ms; app_rpt usa 180 s si no está). None si no se sabe."""
+    cfg = cfg if cfg is not None else settings.load()
+    if backends.kind(cfg) != "asl":
+        return None
+    try:
+        from . import rptconf
+        with open(rptconf.RPT_CONF, encoding="utf-8", errors="replace") as f:
+            secs = rptconf.parse(f.read())
+        nodo = str(cfg.get("node") or backends.detect_asl_node() or "")
+        if nodo not in secs:
+            return None
+        v, _ = rptconf._valor(secs, nodo, "totime")
+        ms = int(str(v).split(";")[0].strip()) if v not in (None, "") else 180000
+        return ms // 1000
+    except (OSError, ValueError, AttributeError, ImportError):
+        return None
+
+
+def voz_limpia(d):
+    """La voz propia de un anuncio (solo Azure por ahora). {} = la de Ajustes."""
+    if isinstance(d, str):
+        try:
+            d = json.loads(d or "{}")
+        except ValueError:
+            d = {}
+    if not isinstance(d, dict) or not str(d.get("azure_voice") or "").strip():
+        return {}
+    v = {"azure_voice": str(d["azure_voice"]).strip()[:80]}
+    if not re.match(r"^[A-Za-z]{2,3}-[A-Za-z0-9]{2,8}-[A-Za-z0-9:]+$", v["azure_voice"]):
+        raise ValueError("Nombre de voz de Azure inválido")
+    estilo = str(d.get("azure_style") or "general").strip()[:40]
+    if not re.match(r"^[A-Za-z_-]+$", estilo):
+        raise ValueError("Estilo de voz inválido")
+    v["azure_style"] = estilo
+    try:
+        v["azure_rate"] = int(float(d.get("azure_rate") or 100))
+        v["azure_pitch"] = int(float(d.get("azure_pitch") or 0))
+    except (TypeError, ValueError):
+        raise ValueError("Velocidad o tono inválidos")
+    if not 50 <= v["azure_rate"] <= 200:
+        raise ValueError("Velocidad de la voz: de 50 a 200 %")
+    if not -50 <= v["azure_pitch"] <= 50:
+        raise ValueError("Tono de la voz: de -50 a 50 Hz")
+    return v
+
+
+def cfg_con_voz(cfg, voz):
+    try:
+        voz = voz_limpia(voz)
+    except ValueError:
+        voz = {}
+    if not voz or tts.motor(cfg) != "azure":
+        return cfg
+    return dict(cfg, **voz)
+
+
+def sintetizar(texto, cfg, voz, out, now=None):
+    """Como tts.sintetizar, con la voz propia del anuncio. Si esa voz falla (ya no existe…),
+    sale con la de Ajustes. Devuelve (texto dicho, duración, aviso)."""
+    c2 = cfg_con_voz(cfg, voz)
+    if c2 is cfg:
+        return tts.sintetizar(texto, cfg, out, now) + ("",)
+    try:
+        return tts.sintetizar(texto, c2, out, now) + ("",)
+    except Exception as e:
+        log.warning("La voz %s falló (%s); sale con la de Ajustes", c2.get("azure_voice"), e)
+        dicho, dur = tts.sintetizar(texto, cfg, out, now)
+        return dicho, dur, "La voz {} falló; salió con la de Ajustes".format(c2.get("azure_voice"))
 
 
 def carpeta():
@@ -82,6 +175,8 @@ def init():
             c.execute("ALTER TABLE anuncios ADD COLUMN evento_id INTEGER NOT NULL DEFAULT 0")
         if "antes" not in cols:
             c.execute("ALTER TABLE anuncios ADD COLUMN antes TEXT NOT NULL DEFAULT '[]'")
+        if "voz" not in cols:                       # voz propia (JSON con azure_voice…); vacío = la de Ajustes
+            c.execute("ALTER TABLE anuncios ADD COLUMN voz TEXT NOT NULL DEFAULT ''")
         if "dtmf" not in cols:                      # código DTMF que lo dispara (dtmf.py)
             c.execute("ALTER TABLE anuncios ADD COLUMN dtmf TEXT NOT NULL DEFAULT ''")
 
@@ -235,9 +330,14 @@ def _limpio(d, actual=None):
     if not a["nombre"]:
         raise ValueError("Ponle un nombre al anuncio")
     a["tipo"] = "audio" if d.get("tipo") == "audio" else "tts"
-    a["texto"] = str(d.get("texto") or "").strip()[:2000]
+    a["texto"] = str(d.get("texto") or "").strip()
+    tope = max_chars()
+    if len(a["texto"]) > tope:
+        raise ValueError("El texto tiene {} caracteres; el máximo es {} (Ajustes → Voz)".format(len(a["texto"]), tope))
     if a["tipo"] == "tts" and not a["texto"]:
         raise ValueError("Escribe lo que dirá el anuncio")
+    voz = voz_limpia(d.get("voz") or {}) if a["tipo"] == "tts" else {}
+    a["voz"] = json.dumps(voz, sort_keys=True) if voz else ""
     a["modo"] = d.get("modo") if d.get("modo") in MODOS else "horas"
     dias = "".join(sorted({c for c in str(d.get("dias") or "") if c in "0123456"}))
     a["dias"] = dias
@@ -298,26 +398,29 @@ def _guardar_audio(src, nombre_original=""):
     except Exception as e:
         paths.rm(dest)
         raise ValueError("No pude leer el audio ({}). Súbelo otra vez desde la página.".format(e))
-    if dur > MAX_SEG + 0.5:
+    tope = max_seg()
+    if dur > tope + 0.5:
         paths.rm(dest)
-        raise ValueError("El audio dura {:.0f} s; el máximo es {} s".format(dur, MAX_SEG))
+        raise ValueError("El audio dura {:.0f} s; el máximo es {} s".format(dur, tope))
     if dur < 0.3:
         paths.rm(dest)
         raise ValueError("El audio está vacío")
     return nombre, dur
 
 
-def _voz(texto, cfg):
+def _voz(texto, cfg, voz=""):
     nombre = "an_{}.wav".format(uuid.uuid4().hex[:10])
     dest = carpeta() / nombre
     try:
-        _dicho, dur = tts.sintetizar(texto, cfg, dest)
+        # Al guardar, si la voz elegida falla se avisa (no se cambia sola por la de Ajustes)
+        _dicho, dur = tts.sintetizar(texto, cfg_con_voz(cfg, voz), dest)
     except Exception:
         paths.rm(dest)
         raise
-    if dur > MAX_SEG + 0.5:
+    tope = max_seg(cfg)
+    if dur > tope + 0.5:
         paths.rm(dest)
-        raise ValueError("Con esa voz el anuncio dura {:.0f} s; el máximo es {} s. Acórtalo.".format(dur, MAX_SEG))
+        raise ValueError("Con esa voz el anuncio dura {:.0f} s; el máximo es {} s. Acórtalo.".format(dur, tope))
     return nombre, dur
 
 
@@ -337,10 +440,11 @@ def guardar(datos, archivo_subido=None, nombre_subido="", usuario="", aid=None):
     else:
         a["archivo_nombre"] = ""
         if actual.get("tipo") == "tts" and actual.get("texto") == a["texto"] and viejo and \
+                (actual.get("voz") or "") == a["voz"] and \
                 (carpeta() / viejo).is_file() and not datos.get("rehacer_voz"):
             a["duracion"] = actual["duracion"]
         else:
-            nuevo, a["duracion"] = _voz(a["texto"], settings.load())
+            nuevo, a["duracion"] = _voz(a["texto"], settings.load(), a["voz"])
     if nuevo:
         a["archivo"] = nuevo
     ahora = _fmt(dt.datetime.now())
@@ -378,10 +482,10 @@ def borrar(aid, usuario=""):
     log.info("%s borró el anuncio «%s»", usuario, a["nombre"])
 
 
-def vista_previa(texto, cfg):
+def vista_previa(texto, cfg, voz=None):
     """Voz de prueba para el editor: (url, texto dicho, duración)."""
     out = paths.tmp_dir() / "voz_{}.wav".format(uuid.uuid4().hex[:8])
-    dicho, dur = tts.sintetizar(texto, cfg, out)
+    dicho, dur = tts.sintetizar(texto, cfg_con_voz(cfg, voz or {}), out)
     return out.name, dicho, dur
 
 
@@ -445,7 +549,7 @@ class Emisor:
         with self.lock:
             return bool(self.actual and self.actual.get("estado") == "al_aire")
 
-    def esperar_fin(self, maximo=MAX_SEG + 15):
+    def esperar_fin(self, maximo=MAX_SEG_RANGO[1] + 15):
         """Para quien va a transmitir otra cosa: espera a que termine el anuncio en curso."""
         fin = time.time() + maximo
         while self.al_aire() and time.time() < fin:
@@ -496,11 +600,11 @@ class Emisor:
             log.info("Anuncio «%s» saltado: el canal no se liberó en %d min", a["nombre"], ESPERA_MAX // 60)
             _anotar(a, "saltado", "El canal estuvo ocupado {} min".format(ESPERA_MAX // 60))
             return
-        wav, temporal = ruta(a), None
+        wav, temporal, aviso = ruta(a), None, ""
         if a["tipo"] == "tts" and tts.tiene_variables(a["texto"]):
             temporal = paths.tmp_dir() / "an_aire_{}.wav".format(uuid.uuid4().hex[:8])
             try:
-                tts.sintetizar(a["texto"], cfg, temporal)
+                _d, _dur, aviso = sintetizar(a["texto"], cfg, a.get("voz"), temporal)
                 wav = temporal
             except Exception as e:
                 paths.rm(temporal)
@@ -524,7 +628,7 @@ class Emisor:
             log.info("Anuncio «%s» al aire (%s, %.1f s, %s)", a["nombre"], modo, dur, motivo)
             time.sleep(dur + 0.8)
             _anotar(a, "ok", {"programado": "", "dtmf": "DTMF · "}.get(motivo, "manual · ") +
-                    ("nodo y enlaces" if modo == "playback" else "solo este nodo"))
+                    ("nodo y enlaces" if modo == "playback" else "solo este nodo") + (" · " + aviso if aviso else ""))
         finally:
             if temporal:
                 # Asterisk ya lo leyó; se borra un poco después por si va retrasado
@@ -635,8 +739,11 @@ def resumen():
     cfg = settings.load()
     return {"anuncios": out, "siguiente": {"id": sig["id"], "nombre": sig["nombre"], "cuando": sig["proximo"], "red": sig["proximo_red"]} if sig else None,
             "eventos": eventos,
-            "emisor": emisor.estado(), "bitacora": bitacora(30), "max_seg": MAX_SEG, "espera_min": ESPERA_MAX // 60,
+            "emisor": emisor.estado(), "bitacora": bitacora(30), "max_seg": max_seg(cfg), "max_chars": max_chars(cfg),
+            "max_seg_rango": MAX_SEG_RANGO, "max_chars_rango": MAX_CHARS_RANGO, "tot_s": tot_nodo(cfg),
+            "espera_min": ESPERA_MAX // 60,
             "voz": {"motor": tts.motor(cfg), "nombre": tts.NOMBRES.get(tts.motor(cfg)), "lista": tts.configurado(cfg),
+                    "ajustes": {k: cfg.get(k) for k in VOZ_KEYS},
                     "variables": tts.VARIABLES, "variables_clima": clima.VARIABLES},
             "clima": {"listo": clima.configurado(cfg), "lugar": cfg.get("wx_lugar") or ""},
             "otros": _otros(),
@@ -662,7 +769,7 @@ def rehacer_voces(terminos, cfg=None):
         if a["tipo"] != "tts" or not pronuncia.toca(a["texto"], terminos):
             continue
         try:
-            nombre, dur = _voz(a["texto"], cfg)
+            nombre, dur = _voz(a["texto"], cfg, a.get("voz"))
         except Exception as e:
             log.warning("No pude rehacer la voz del anuncio «%s»: %s", a["nombre"], e)
             continue

@@ -20,7 +20,7 @@ ASLSCAN is the **Dashboard of [HAMNA Web](https://github.com/xe2mbe/hamna)** as 
 - **IRLP**: the node or reflector it's connected to, COS/PTT, the other nodes on the reflector, connect/disconnect, enable/disable, inactivity timeout, AUX outputs, DTMF, the IRLP log and the switch to turn the old IRLPvCON off.
 - **🕒 Connection history** (Dashboard): a timeline of every link — when it connected, incoming or outgoing, mode, IP, who asked for it, failed attempts, and how long it lasted when it disconnected (kept 90 days; also links made by DTMF or by other nodes).
 - **🔊 Live listening** from the page (8 kHz, up to 8 listeners).
-- **📢 Announcements** (Schedule → Announcements): short announcements (up to 60 s) that the node transmits on its own at given times, every N minutes or once, read by a voice (Azure, ElevenLabs or Piper/asl3-tts), with the time and the weather if you want; plus **⚠ automatic alerts** for weather, forecast and earthquakes, uploaded or recorded from the page; they wait for a quiet channel and never interrupt (AllStar nodes).
+- **📢 Announcements** (Schedule → Announcements): short announcements (60 s by default, up to 170 s) that the node transmits on its own at given times, every N minutes or once, read by a voice (Azure, ElevenLabs or Piper/asl3-tts), with the time and the weather if you want; plus **⚠ automatic alerts** for weather, forecast and earthquakes, uploaded or recorded from the page; they wait for a quiet channel and never interrupt (AllStar nodes).
 - **Telegram bot**: 📋 Menu → 🔗 Connections (see, connect with your favorites by category or by number, change the mode, disconnect), 🩺 Health and 🗺 Nodes. Alerts for health, failed backups and nodes that stop reporting.
 - **Nodes panel**: each node reports its health, device and version to a hub every minute. ASLSCAN and HAMNA Web nodes can report to the same hub. With "Let the hub control this node" checked, the hub's Telegram bot (HAMNA Web 1.50 or newer) can also see and control this node: connections, announcements, weather and alerts, health — with permissions per node set on the hub.
 - **Users** with roles (administrator, operator, read only), sessions, attempt lockout, photo and language (English / Spanish).
@@ -77,9 +77,19 @@ sudo /opt/aslscan/update.sh
 
 It installs the newest release (`vX.Y.Z` tag) and keeps users, favorites and settings; it backs up first to `/var/backups/aslscan/`. **Settings → System** says when there's a new version.
 
+### Security checklist
+
+ASLSCAN can change the node: an administrator can edit rpt.conf (tones, DTMF), and a DTMF `cmd` function runs programs as Asterisk's user (root on HamVOIP). Treat the administrator password like the node's root password.
+
+1. **Long, unique passwords** for administrators; give **operator** users for day-to-day use.
+2. **Always https** (`https://<node>/aslscan/`, through the node's Apache) or an SSH tunnel (`ssh -L 8095:127.0.0.1:8095 user@node`). Never forward port 8095 on the router. With `--listen-all` or on IRLP the installer opens 8095 only to the local network (10.x, 172.16–31.x, 192.168.x), and the page warns when it's opened over plain http.
+3. **Every backup is a secret**: it carries the voice, Telegram and weather keys.
+4. **Read before you run**: download the release tag, check its SHA-256 (it's in the release notes) and read `install.sh` instead of `curl | sudo bash`.
+5. **Asterisk's AMI (port 5038) must not be reachable from the internet**. It isn't part of ASLSCAN, but **Health** warns if it listens beyond 127.0.0.1.
+
 ### Announcements
 
-**Schedule → Announcements**: short announcements (up to 60 s) that the node transmits on its own.
+**Schedule → Announcements**: short announcements (60 s by default; up to 170 s in Settings → Voice) that the node transmits on its own.
 
 - **What it says**: text read by the voice of Settings → Voice (with `{hora}`, `{son_las}`, `{dia}`, `{fecha}`, `{fecha_larga}`, `{saludo}`, `{despedida}`, `{nodo}` and the weather ones; if the text has variables the voice is generated again right before it goes out), an uploaded audio file, or a recording made from the page (needs https). Uploads and recordings are converted in the browser.
 - **When**: at given times on the chosen days, every N minutes within a time window, just once; optionally only between two dates.
@@ -87,6 +97,10 @@ It installs the newest release (`vX.Y.Z` tag) and keeps users, favorites and set
 - **Where**: only this node's radio (`rpt localplay`) or also the linked nodes (`rpt playback`).
 - **It never interrupts**: it waits for the channel to be quiet (nobody receiving, transmitting or talking through a link) for 3 s; if the channel doesn't clear in 5 min, that slot is skipped and logged.
 - Each card has ▶ Listen, 📡 Transmit now, pause/activate, edit and delete, plus the next slot and the last result; the **announcement log** shows what went out, what was skipped and why. Administrators and operators create them; read-only users see them.
+- **📄 Load .txt** fills the text from a file on your computer (UTF-8 or the old Notepad's Windows-1252); a blank line is a short pause. The editor counts the characters against the limit.
+- **🎙 Voice per announcement** (Azure): a different voice, style, speed and pitch for each one, with ▶ Listen; empty = the one in Settings → Voice. If that voice ever fails, it goes out with the one in Settings and it's noted in the log.
+- **⬇ Download** the audio of each announcement (the 8 kHz WAV that goes on air).
+- **Limits** in Settings → Voice: maximum length (30–170 s, default 60) and maximum characters (200–4000, default 2000). It shows the node's TOT (`totime` in rpt.conf) and warns if an announcement that long would be cut; check the TOT of the linked nodes too.
 - They're included in backups.
 
 Announcements need no ffmpeg or sox: everything is stored as 8 kHz WAV, which Asterisk reads directly.
@@ -197,7 +211,7 @@ ASLSCAN es el **Dashboard de [HAMNA Web](https://github.com/xe2mbe/hamna)** como
 - **IRLP**: a qué nodo o reflector está conectado, COS/PTT, los demás nodos del reflector, conectar/desconectar, habilitar/deshabilitar, desconexión por inactividad, salidas AUX, DTMF, la bitácora de IRLP y el botón para apagar el viejo IRLPvCON.
 - **🕒 Historial de conexiones** (Dashboard): línea de tiempo de cada enlace — cuándo se conectó, si fue entrante o saliente, modo, IP, quién lo pidió, intentos fallidos y cuánto duró al desconectarse (se guarda 90 días; también los enlaces hechos por DTMF o por otros nodos).
 - **🔊 Escuchar en vivo** desde la página (8 kHz, hasta 8 personas).
-- **📢 Anuncios** (Programación → Anuncios): anuncios cortos (hasta 60 s) que el nodo transmite solo a ciertas horas, cada N minutos o una vez, con voz (Azure, ElevenLabs o Piper/asl3-tts), y si quieres con la hora y el clima; además **⚠ alertas automáticas** de clima, pronóstico y sismos, subidos o grabados desde la página; esperan a que el canal esté libre y nunca interrumpen (nodos AllStar).
+- **📢 Anuncios** (Programación → Anuncios): anuncios cortos (60 s de fábrica, hasta 170 s) que el nodo transmite solo a ciertas horas, cada N minutos o una vez, con voz (Azure, ElevenLabs o Piper/asl3-tts), y si quieres con la hora y el clima; además **⚠ alertas automáticas** de clima, pronóstico y sismos, subidos o grabados desde la página; esperan a que el canal esté libre y nunca interrumpen (nodos AllStar).
 - **Bot de Telegram**: 📋 Menú → 🔗 Conexiones (ver, conectar con tus favoritos por categoría o por número, cambiar el modo, desconectar), 🩺 Salud y 🗺 Nodos. Avisos de salud, de respaldos fallidos y de nodos que dejan de reportar.
 - **Panel de nodos**: cada nodo manda a un hub su salud, equipo y versión cada minuto. Los nodos con ASLSCAN y con HAMNA Web pueden reportar al mismo hub. Si marcas "Permitir que el hub controle este nodo", el bot de Telegram del hub (HAMNA Web 1.50 o más nueva) también puede ver y controlar este nodo: conexiones, anuncios, clima y alertas, salud — con permisos por nodo que se dan en el hub.
 - **Usuarios** con roles (administrador, operador, solo lectura), sesiones, bloqueo por intentos, foto e idioma (inglés / español).
@@ -254,9 +268,19 @@ sudo /opt/aslscan/update.sh
 
 Instala la versión publicada más nueva (etiqueta `vX.Y.Z`) y conserva usuarios, favoritos y ajustes; antes respalda en `/var/backups/aslscan/`. **Ajustes → Sistema** avisa cuando hay versión nueva.
 
+### Seguridad: lista para quien instala
+
+ASLSCAN puede cambiar el nodo: un administrador edita rpt.conf (tonos, DTMF) y una función DTMF `cmd` corre programas con el usuario de Asterisk (root en HamVOIP). Cuida la contraseña de administrador como la de root del nodo.
+
+1. **Contraseñas largas y únicas** para los administradores; usuarios **operador** para el día a día.
+2. **Siempre por https** (`https://<nodo>/aslscan/`, con el Apache del nodo) o por túnel SSH (`ssh -L 8095:127.0.0.1:8095 usuario@nodo`). Nunca reenvíes el 8095 en el router. Con `--listen-all` o en IRLP el instalador abre el 8095 solo a la red local (10.x, 172.16–31.x, 192.168.x), y la página avisa si entras por http sin cifrar.
+3. **Cada respaldo es secreto**: lleva las claves de la voz, de Telegram y del clima.
+4. **Lee antes de correr**: baja la etiqueta del release, revisa su SHA-256 (viene en las notas del release) y lee `install.sh` en lugar de `curl | sudo bash`.
+5. **El AMI de Asterisk (puerto 5038) no debe verse desde internet**. No es de ASLSCAN, pero **Salud** avisa si escucha fuera de 127.0.0.1.
+
 ### Anuncios
 
-**Programación → Anuncios**: anuncios cortos (hasta 60 s) que el nodo transmite solo.
+**Programación → Anuncios**: anuncios cortos (60 s de fábrica; hasta 170 s en Ajustes → Voz) que el nodo transmite solo.
 
 - **Qué dice**: un texto que lee la voz de Ajustes → Voz (con `{hora}`, `{son_las}`, `{dia}`, `{fecha}`, `{fecha_larga}`, `{saludo}`, `{despedida}`, `{nodo}` y las del clima; si el texto lleva variables la voz se genera otra vez justo antes de salir), un audio subido o una grabación hecha desde la página (requiere https). Lo subido y lo grabado se convierte en el navegador.
 - **Cuándo**: a ciertas horas los días elegidos, cada N minutos dentro de un horario, una sola vez; si quieres, solo entre dos fechas.
@@ -264,6 +288,10 @@ Instala la versión publicada más nueva (etiqueta `vX.Y.Z`) y conserva usuarios
 - **Dónde**: solo el radio de este nodo (`rpt localplay`) o también los nodos enlazados (`rpt playback`).
 - **Nunca interrumpe**: espera a que el canal esté en silencio 3 s (nadie recibiendo, transmitiendo ni hablando por un enlace); si en 5 min no se libera, ese turno se salta y queda en la bitácora.
 - Cada tarjeta tiene ▶ Escuchar, 📡 Transmitir ahora, pausar/activar, editar y borrar, con el próximo turno y el último resultado; la **bitácora de anuncios** dice qué salió, qué se saltó y por qué. Los crean el administrador y los operadores; solo lectura los ve.
+- **📄 Cargar .txt** llena el texto con un archivo de tu equipo (UTF-8 o el Windows-1252 del Bloc de notas viejo); un renglón en blanco es una pausa breve. El editor cuenta los caracteres contra el tope.
+- **🎙 Voz por anuncio** (Azure): otra voz, estilo, velocidad y tono para cada uno, con ▶ Escuchar; vacío = la de Ajustes → Voz. Si un día esa voz falla, sale con la de Ajustes y queda en la bitácora.
+- **⬇ Descargar** el audio de cada anuncio (el WAV de 8 kHz que sale al aire).
+- **Topes** en Ajustes → Voz: duración máxima (30–170 s, de fábrica 60) y caracteres máximos (200–4000, de fábrica 2000). Muestra el TOT del nodo (`totime` de rpt.conf) y avisa si un anuncio tan largo lo cortaría; revisa también el TOT de los nodos enlazados.
 - Entran en los respaldos.
 
 Los anuncios no necesitan ffmpeg ni sox: todo se guarda en WAV 8 kHz, que Asterisk lee directo.

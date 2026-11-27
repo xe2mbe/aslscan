@@ -257,6 +257,10 @@
                 <label>Velocidad (%)<input name="eleven_speed" type="number" min="70" max="120"></label>
               </div>
             </div>
+            <div class="grid2 an-topes">
+              <label>Duración máxima de un anuncio (s)<input name="anuncio_max_seg" type="number" min="30" max="170" step="1"><small id="anTotHint">De 30 a 170 s. Por omisión 60.</small></label>
+              <label>Caracteres máximos del texto<input name="anuncio_max_chars" type="number" min="200" max="4000" step="100"><small>De 200 a 4000. Por omisión 2000.</small></label>
+            </div>
             <label>Probar voz<textarea id="vozTest" rows="2">{saludo}, este es un anuncio de prueba del nodo {nodo}. Son las {hora}.</textarea></label>
             <div class="row gap wrap"><button type="button" class="btn" id="btnVozTest">▶ Escuchar</button><audio id="vozTestAudio" controls class="hidden"></audio></div>
             <small class="muted">Se oye con la voz guardada: si cambiaste algo, guarda primero.</small>
