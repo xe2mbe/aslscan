@@ -545,7 +545,7 @@ AL_NUM = ("al_viento", "al_racha", "al_lluvia", "al_presion", "al_calor", "al_fr
           "al_sismo_cada")
 STR_KEYS = {"backend", "node", "irlp_env", "station_name", "tg_chat",
             "ab_hora", "ab_node_url", "ab_node_pin", "ab_cloud_folder", "hub_url", "hub_pin",
-            "tts_engine", "azure_region", "azure_voice", "azure_style", "espeak_voice",
+            "tts_engine", "azure_region", "azure_voice", "azure_style", "espeak_voice", "url_dominios", "url_cafile",
             "eleven_voice", "eleven_voice_name", "eleven_model",
             "wx_lat", "wx_lon", "wx_lugar", "wx_unidades", "wx_pws_station",
             "al_clima_desde", "al_clima_hasta", "al_clima_destino", "al_pron_antes", "al_sismo_destino"} | set(AL_NUM)
@@ -587,6 +587,10 @@ def ajustes_save(req):
         upd["azure_region"] = re.sub(r"[^a-z0-9]", "", upd["azure_region"].lower())
     if upd.get("tts_engine") not in (None, "", "azure", "elevenlabs", "piper", "espeak"):
         raise ValueError("Motor de voz inválido")
+    if upd.get("url_cafile") and not upd["url_cafile"].startswith("/"):
+        raise ValueError("El archivo de certificados va con su ruta completa (p. ej. /etc/ssl/certs/ca-certificates.crt)")
+    if "url_dominios" in upd:
+        upd["url_dominios"] = ", ".join(x for x in re.split(r"[,\s]+", upd["url_dominios"].lower()) if x)[:400]
     lo, hi = anuncios.MAX_SEG_RANGO
     if "anuncio_max_seg" in upd and not lo <= upd["anuncio_max_seg"] <= hi:
         raise ValueError("Duración máxima de un anuncio: de {} a {} s".format(lo, hi))
@@ -616,6 +620,12 @@ def _anuncio_req(req, aid=None):
         raise ValueError("Datos del anuncio inválidos")
     up = req.files.get("archivo")
     actual = anuncios.uno(aid) if aid else {}
+    # «Texto desde una dirección»: es una petición que sale del nodo; solo el administrador pone o cambia la dirección
+    if req.user["rol"] != "admin":
+        if datos.get("tipo") == "url" and actual.get("tipo") != "url":
+            raise HTTPError(403, "Solo un administrador puede crear un anuncio desde una dirección")
+        if actual.get("tipo") == "url":
+            datos["url"] = actual.get("url", "")
     # El código DTMF cambia rpt.conf: solo el administrador lo pone o lo quita
     if req.user["rol"] != "admin" or "dtmf" not in datos:
         datos["dtmf"] = actual.get("dtmf", "")
@@ -748,6 +758,18 @@ def anuncios_descargar(req, aid):
         ascii_name, urllib.parse.quote(nombre))
     log.info("%s descargó el anuncio «%s»", req.user["usuario"], a["nombre"])
     return r
+
+
+@app.route("/api/anuncios/url/probar", ("POST",), rol="admin")
+def anuncios_url_probar(req):
+    """Baja el texto de la dirección y muestra cómo llegó y cómo se dirá; con voz=1 también lo hace voz."""
+    b = req.json()
+    cfg = settings.load()
+    r = anuncios.probar_url(b.get("url"), cfg, anuncios.voz_limpia(b.get("voz") or {}), truthy(b.get("con_voz")),
+                            str(b.get("respaldo") or "")[:anuncios.max_chars(cfg)])
+    if r.get("url_audio"):
+        r["url_audio"] = "api/tmp/" + r["url_audio"]
+    return ok(**r)
 
 
 @app.route("/api/anuncios/voz", ("POST",), rol="operador")
