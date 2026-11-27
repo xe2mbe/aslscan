@@ -181,6 +181,25 @@ Both can be installed on the same node; each one has its own service, data and a
 - **Users** are separate: each program has its own.
 - **Backups and nodes panel** use the same protocol: an ASLSCAN node can report and send its backups to a HAMNA Web hub (1.42 or newer) and vice versa.
 
+### API for scripts
+
+The page uses a JSON API under `https://<node>/aslscan/api/` that a script can use too:
+
+1. Sign in once and keep the cookie: `curl -sc c.txt -H "Content-Type: application/json" -d '{"usuario":"USER","password":"PASS"}' https://<node>/aslscan/api/login`
+2. Send the cookie with every request (`-b c.txt`) and, on everything that isn't GET, the header **`X-ASLSCAN: 1`** (the CSRF defense: without it the request is refused with 403).
+3. Uploads go as `multipart/form-data`: the fields, or a **`datos`** field with JSON, plus **`archivo`** with the audio file.
+
+```
+# A voice library entry: datos is JSON {nombre, notas, tipo: tts|audio, texto, voz}; archivo if tipo=audio
+curl -sb c.txt -H "X-ASLSCAN: 1" -F 'datos={"nombre":"Episode 1","tipo":"audio","notas":"…"}' -F archivo=@ep1.wav \
+     https://NODE/aslscan/api/biblioteca
+# A scheduled announcement: datos is JSON (the same fields as the editor)
+curl -sb c.txt -H "X-ASLSCAN: 1" -F 'datos={"nombre":"Net","tipo":"tts","texto":"{saludo}…","modo":"horas","horas":[{"h":"21:00","red":true}],"dias":"0123456"}' \
+     https://NODE/aslscan/api/anuncios
+```
+
+Use a user with the right role (operator or administrator) and, from outside the node, always https. Durations come back in seconds with 2 decimals.
+
 ### Files
 
 | Path | What |
@@ -376,6 +395,25 @@ Los dos se pueden instalar en el mismo nodo; cada uno tiene su servicio, sus dat
 - **Telegram**: usa **un bot distinto** para cada uno (Telegram no deja que dos programas lean los mensajes del mismo bot).
 - **Los usuarios** son aparte: cada programa tiene los suyos.
 - **Respaldos y panel de nodos** usan el mismo protocolo: un nodo con ASLSCAN puede reportar y mandar sus respaldos a un hub con HAMNA Web (1.42 o más nuevo) y al revés.
+
+### API para scripts
+
+La página usa una API JSON en `https://<nodo>/aslscan/api/` que también puede usar un script:
+
+1. Entra una vez y guarda la cookie: `curl -sc c.txt -H "Content-Type: application/json" -d '{"usuario":"USUARIO","password":"CLAVE"}' https://<nodo>/aslscan/api/login`
+2. Manda la cookie en cada petición (`-b c.txt`) y, en todo lo que no es GET, la cabecera **`X-ASLSCAN: 1`** (la defensa CSRF: sin ella la petición se rechaza con 403).
+3. Las subidas van como `multipart/form-data`: los campos, o un campo **`datos`** con JSON, más **`archivo`** con el audio.
+
+```
+# Un audio de la biblioteca: datos es JSON {nombre, notas, tipo: tts|audio, texto, voz}; archivo si tipo=audio
+curl -sb c.txt -H "X-ASLSCAN: 1" -F 'datos={"nombre":"Episodio 1","tipo":"audio","notas":"…"}' -F archivo=@ep1.wav \
+     https://NODE/aslscan/api/biblioteca
+# Un anuncio programado: datos es JSON (los mismos campos del editor)
+curl -sb c.txt -H "X-ASLSCAN: 1" -F 'datos={"nombre":"Net","tipo":"tts","texto":"{saludo}…","modo":"horas","horas":[{"h":"21:00","red":true}],"dias":"0123456"}' \
+     https://NODE/aslscan/api/anuncios
+```
+
+Usa un usuario con el rol adecuado (operador o administrador) y, desde fuera del nodo, siempre https. Las duraciones vienen en segundos con 2 decimales.
 
 ### Archivos
 

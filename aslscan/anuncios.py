@@ -480,6 +480,8 @@ def guardar(datos, archivo_subido=None, nombre_subido="", usuario="", aid=None):
     if nuevo:
         a["archivo"] = nuevo
     ahora = _fmt(dt.datetime.now())
+    if "duracion" in a:
+        a["duracion"] = round(float(a["duracion"] or 0), 2)
     a["modificado"] = ahora
     try:
         if aid:
@@ -583,7 +585,7 @@ def _texto_url(a, cfg):
             return a["texto"], "La dirección falló ({}); salió el texto de respaldo".format(e), "ok"
         return "", "La dirección falló: {}".format(e), "error"
     nota = "texto de la dirección"
-    tope = max_chars(cfg)
+    tope = MAX_CHARS_RANGO[1]          # texto de una dirección: hasta 4,000 caracteres (contrato); los tramos cuidan la duración
     if len(texto) > tope:
         corto = ""
         for p in textourl.parrafos(texto):
